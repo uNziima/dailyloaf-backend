@@ -1,0 +1,81 @@
+
+package com.dailyloaf.util;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ *
+ * @author Ulikhaya Mazibuko
+ */
+public class Json {
+    private static final String STRING_PATTERN =
+    "\"@KEY@\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"";
+
+    private static final String NUMBER_PATTERN =
+        "\"@KEY@\"\\s*:\\s*(-?\\d+)";
+
+    public static String getString(String json, String key) {
+        if (json == null || key == null) return null;
+        Pattern p = Pattern.compile(
+            STRING_PATTERN.replace("@KEY@", Pattern.quote(key))
+        );
+        Matcher m = p.matcher(json);
+        return m.find() ? unescape(m.group(1)) : null;
+    }
+
+    public static Long getLong(String json, String key) {
+        if (json == null || key == null) return null;
+        Pattern p = Pattern.compile(
+            NUMBER_PATTERN.replace("@KEY@", Pattern.quote(key))
+        );
+        Matcher m = p.matcher(json);
+        return m.find() ? Long.valueOf(m.group(1)) : null;
+    }
+        
+    public static boolean hasKey(String json, String key) {
+        return json != null && key != null && json.contains("\"" + key + "\"");
+    }
+    
+    public static boolean isTextMessage(String json) {
+        if (json == null) return false;
+        return json.contains("\"messages\"")
+            && !json.contains("\"messages\":[]")
+            && json.contains("\"type\":\"text\"");
+    }
+    
+    public static String object(String... keyValues) {
+        if (keyValues.length % 2 != 0) {
+            throw new IllegalArgumentException(
+                "Json.object() requires alternating key-value pairs."
+            );
+        }
+        StringBuilder sb = new StringBuilder("{");
+        for (int i = 0; i < keyValues.length; i += 2) {
+            if (i > 0) sb.append(",");
+            sb.append("\"").append(escape(keyValues[i])).append("\":");
+            sb.append("\"").append(escape(keyValues[i + 1])).append("\"");
+        }
+        return sb.append("}").toString();
+    }
+    
+    public static String escape(String s) {
+        if (s == null) return "";
+        return s
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t");
+    }
+
+    private static String unescape(String s) {
+        if (s == null) return null;
+        return s
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\\")
+            .replace("\\n",  "\n")
+            .replace("\\r",  "\r")
+            .replace("\\t",  "\t");
+    }
+}
