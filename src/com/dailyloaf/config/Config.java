@@ -82,6 +82,11 @@ public class Config {
     }
     
     public int getPort() {
+        // Railway injects PORT - check that first
+        String railwayPort = System.getenv("PORT");
+        if (railwayPort != null) {
+            return Integer.parseInt(railwayPort);
+        }
         return Integer.parseInt(get("server.port", "8080"));
     }
 
