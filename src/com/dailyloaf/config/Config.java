@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import java.io.File;
 
 /**
  *
@@ -18,14 +19,39 @@ public class Config {
     }
     
     public static Config load() throws IOException {
-    Properties props = new Properties();
-    try (InputStream is = new FileInputStream("config.properties")) {
-        props.load(is);
-    }
-    
-    Config config = new Config(props);
-    config.validate();
-    return config;
+        Properties props = new Properties();
+
+        // Try config.properties first (local development)
+        File configFile = new File("config.properties");
+        if (configFile.exists()) {
+            try (InputStream is = new FileInputStream(configFile)) {
+                props.load(is);
+                System.out.println("[Config] Loaded from config.properties");
+            }
+        } else {
+            // Production — read from environment variables (Railway)
+            System.out.println("[Config] No config.properties found - reading from environment variables");
+            String[] keys = {
+                "server.port",
+                "whatsapp.token",
+                "whatsapp.phone_number_id",
+                "webhook.verify_token",
+                "sheets.spreadsheet_id",
+                "google.service_account_email",
+                "google.private_key"
+            };
+            for (String key : keys) {
+                String envKey = key.replace(".", "_").toUpperCase();
+                String value  = System.getenv(envKey);
+                if (value != null) {
+                    props.setProperty(key, value);
+                }
+            }
+        }
+
+        Config config = new Config(props);
+        config.validate();
+        return config;
     }
     
     private void validate() {
@@ -41,7 +67,7 @@ public class Config {
             if (get(key) == null || get(key).isBlank()) {
                 throw new IllegalStateException(
                     "Missing required config key: " + key +
-                    " — check your config.properties file."
+                    " - check your config.properties file."
                 );
             }
         }

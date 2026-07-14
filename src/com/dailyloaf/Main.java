@@ -15,7 +15,7 @@ public class Main {
 
         try {
             Config config = Config.load();
-
+            
             SheetsClient   sheets   = new SheetsClient(config);
             WhatsAppClient whatsApp = new WhatsAppClient(config);
 
