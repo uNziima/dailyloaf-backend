@@ -23,7 +23,7 @@ import java.util.concurrent.Executors;
 
 public class WebhookHandler implements HttpHandler {
 
-    private static final String FORM_LINK = "https://forms.gle/YOUR_FORM_LINK";
+    private static final String FORM_LINK = "https://forms.gle/LZceix3qQm8G1WdQ7";
 
     private final Config          config;
     private final WhatsAppClient  whatsApp;
