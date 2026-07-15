@@ -16,10 +16,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 public class WebhookHandler implements HttpHandler {
 
@@ -104,6 +105,12 @@ public class WebhookHandler implements HttpHandler {
         }
 
         System.out.println("[Webhook] Returning customer: " + customer);
+        
+                // Check if this customer has a pending order waiting for payment method
+        if (pendingOrders.containsKey(from)) {
+            handlePaymentMethodReply(from, customer, text);
+            return;
+        }
 
         // If they just said hi, greet them back before trying to parse an order
         String normalisedText = text.trim().toLowerCase();
@@ -142,9 +149,8 @@ public class WebhookHandler implements HttpHandler {
             // Payment status check
             if (normalised.matches("paid|payment|confirmed|did you get it|have you received|status|my order")) {
                 whatsApp.send(from,
-                    "Hey " + customer.getFirstName() + ", check with us on " +
-                            //I NEED TO ADD BUSINESS NUMBER HERE
-                  "0XX XXX XXXX if you need payment confirmation. " +
+                    "Hey " + customer.getFirstName() + ", check with us on " + config.getBusinessPhoneNumber() +
+                  "if you need payment confirmation. " +
                     "Once we see your PayShap we'll confirm immediately."
                 );
                 return;
@@ -211,6 +217,7 @@ public class WebhookHandler implements HttpHandler {
             }
 
             case VALID -> {
+                // Create order in Sheet first — get the order ID
                 String orderId = sheets.createOrder(
                     customer.getCustomerId(),
                     parsed.deliveryDay,
@@ -223,16 +230,31 @@ public class WebhookHandler implements HttpHandler {
 
                 System.out.println("[Webhook] Order created: " + orderId);
 
-                whatsApp.sendPaymentRequest(
-                    from,
-                    customer.getFirstName(),
+                int total  = parsed.totalLoaves();
+                int amount = total * 20;
+
+                // Store pending order — waiting for payment method reply
+                pendingOrders.put(from, new PendingOrder(
+                    customer.getCustomerId(),
+                    parsed.deliveryDay,
                     parsed.whiteLoaves,
                     parsed.brownLoaves,
-                    parsed.totalLoaves(),
-                    parsed.totalLoaves() * 20,
+                    total,
+                    amount,
                     orderId
+                ));
+
+                // Ask for payment method
+                whatsApp.send(from,
+                    "Got it, " + customer.getFirstName() + " — " +
+                    parsed.whiteLoaves + " white + " + parsed.brownLoaves +
+                    " brown for " + parsed.deliveryDay + " = R" + amount + ".\n\n" +
+                    "How are you paying?\n" +
+                    "*1* - PayShap\n" +
+                    "*2* - Cash on delivery"
                 );
             }
+
         }
     }
 
@@ -252,7 +274,7 @@ public class WebhookHandler implements HttpHandler {
     }
 
     private Map<String, String> queryParams(URI uri) {
-        Map<String, String> params = new HashMap<>();
+        Map<String, String> params = new ConcurrentHashMap<>();
         String query = uri.getQuery();
         if (query == null) return params;
         for (String pair : query.split("&")) {
@@ -261,4 +283,78 @@ public class WebhookHandler implements HttpHandler {
         }
         return params;
     }
+    
+    // Stores pending orders waiting for payment method confirmation
+    // Key: WhatsApp number, Value: pending order details
+    private final Map<String, PendingOrder> pendingOrders = new ConcurrentHashMap<>();
+    
+    private static class PendingOrder {
+    String customerId;
+    String deliveryDay;
+    int    white;
+    int    brown;
+    final int    total;
+    final int    amount;
+    String orderId;
+
+         PendingOrder(String customerId, String deliveryDay,
+                 int white, int brown,
+                 int total, int amount, String orderId) {
+        this.customerId  = customerId;
+        this.deliveryDay = deliveryDay;
+        this.white       = white;
+        this.brown       = brown;
+        this.total       = total;
+        this.amount      = amount;
+        this.orderId     = orderId;
+        }
+    }
+    
+    private void handlePaymentMethodReply(String from, Customer customer,
+                                        String text) {
+      PendingOrder pending = pendingOrders.get(from);
+      if (pending == null) return;
+
+      String reply = text.trim().toLowerCase();
+
+      String paymentMethod;
+      String paymentInstruction;
+
+      switch (reply) {
+          case "1", "payshap", "pay shap", "eft" -> {
+              paymentMethod      = "PayShap";
+              paymentInstruction =
+                  "Send R" + pending.amount + " to [Capitec number] via PayShap. " +
+                  "Use *" + pending.orderId + "* as your reference. " +
+                  "Once we see it you're confirmed.";
+          }
+          case "2", "cash on delivery", "cash", "cod" -> {
+              paymentMethod      = "Cash";
+              paymentInstruction =
+                  "Have R" + pending.amount + " ready on delivery day. " +
+                  "Your order is locked in.";
+          }
+          default -> {
+              // Didn't understand — ask again
+              whatsApp.send(from,
+                  "Please reply *1* for PayShap or *2* for Cash on delivery."
+              );
+              return;
+          }
+      }
+
+      // Remove from pending — payment method confirmed
+      pendingOrders.remove(from);
+
+      // Update order payment method in Sheet
+      sheets.updateOrderPaymentMethod(pending.orderId, paymentMethod);
+
+      // Send confirmation
+      whatsApp.send(from,
+          "Confirmed, " + customer.getFirstName() + ". " +
+          "Your order *" + pending.orderId + "* — " +
+          pending.white + " white + " + pending.brown + " brown for " +
+          pending.deliveryDay + ". " + paymentInstruction
+      );
+  }
 }

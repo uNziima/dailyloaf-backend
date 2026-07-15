@@ -367,5 +367,30 @@ private List<String> parseRow(String rowStr) {
             .replace(":", "%3A");
     }
     
-    
+    public void updateOrderPaymentMethod(String orderId, String paymentMethod) {
+        String range   = TAB_ORDERS + "!A2:A";
+        String rawJson = getRange(range);
+        if (rawJson == null) return;
+
+        List<List<String>> rows = parseValues(rawJson);
+        int rowNumber = -1;
+
+        for (int i = 0; i < rows.size(); i++) {
+            if (!rows.get(i).isEmpty() &&
+                orderId.equals(rows.get(i).get(0).trim())) {
+                rowNumber = i + 2;
+                break;
+            }
+        }
+
+        if (rowNumber == -1) {
+            System.err.println("[Sheets] Order not found for payment update: " + orderId);
+            return;
+        }
+
+        // Column J is payment method (index 10, 1-based)
+        String cellRange = TAB_ORDERS + "!J" + rowNumber;
+        updateCell(cellRange, paymentMethod);
+        System.out.println("[Sheets] Payment method updated: " + orderId + " → " + paymentMethod);
+    }
 }

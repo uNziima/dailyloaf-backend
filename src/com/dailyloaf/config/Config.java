@@ -113,6 +113,10 @@ public class Config {
     public String getGooglePrivateKey() {
         return get("google.private_key");
     }
+    
+    public String getBusinessPhoneNumber() {
+        return get("business.phone_number");
+    }
 }
 
 
