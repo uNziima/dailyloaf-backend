@@ -65,15 +65,17 @@ public class WhatsAppClient {
     }
 
     public void sendPaymentRequest(String to, String firstName,
-                                   int white, int brown,
-                                   int total, int amount) {
-        send(to, String.format(
-            "Hi %s — Your order: %d white + %d brown = %d loaves. " +
-            "Total: R%d. Send to [Capitec number] via PayShap. " +
-            "Once we see it, you're confirmed.",
-            firstName, white, brown, total, amount
-        ));
-    }
+                                    int white, int brown,
+                                    int total, int amount,
+                                    String orderId) {
+         send(to, String.format(
+             "Hi %s - Your order: %d white + %d brown = %d loaves. " +
+             "Total: R%d. Send to [Capitec number] via PayShap. " +
+             "Use *%s* as your payment reference. " +
+             "Once we see it, you're confirmed.",
+             firstName, white, brown, total, amount, orderId
+         ));
+        }
 
     public void sendPaymentConfirmed(String to, String firstName,
                                      String deliveryDay) {
