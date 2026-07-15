@@ -24,6 +24,7 @@ public class DailyLoafServer {
 
         server.createContext("/webhook", new WebhookHandler(config));
         server.createContext("/health",  this::handleHealth);
+        server.createContext("/send", new SendHandler(config));
 
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.start();
