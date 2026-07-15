@@ -108,6 +108,38 @@ public class WebhookHandler implements HttpHandler {
         ParsedOrder parsed = MessageParser.parse(text);
 
         if (parsed == null) {
+            String normalised = text.trim().toLowerCase();
+
+            // Greetings — respond personally
+            if (normalised.matches("hi|Hi|Hello|hello|hey|Ola|ola|Wola|wola||awe|Awe|heyy|hola|sawubona|howzit|good morning|morning|good evening|evening|good afternoon|afternoon")) {
+                whatsApp.send(from,
+                    "Hey " + customer.getFirstName() + "! " +
+                    "Ready to order? Just tell me what you need - " +
+                    "e.g. '2 white friday' or 'same monday'."
+                );
+                return;
+            }
+
+            // Gratitude — acknowledge warmly
+            if (normalised.matches("thanks|thank you|dankie|ngyabonga|danko|danki|ngiyabonga|cheers|appreciated|thx|ty")) {
+                whatsApp.send(from,
+                    "Always, " + customer.getFirstName() + ". See you on delivery day."
+                );
+                return;
+            }
+
+            // Payment status check
+            if (normalised.matches("paid|payment|confirmed|did you get it|have you received|status|my order")) {
+                whatsApp.send(from,
+                    "Hey " + customer.getFirstName() + ", check with us on " +
+                            //I NEED TO ADD BUSINESS NUMBER HERE
+                  "0XX XXX XXXX if you need payment confirmation. " +
+                    "Once we see your PayShap we'll confirm immediately."
+                );
+                return;
+            }
+
+            // Genuinely unrecognised — send help
             whatsApp.sendReturningCustomerHelp(from, customer.getFirstName());
             return;
         }
@@ -132,7 +164,7 @@ public class WebhookHandler implements HttpHandler {
                                  ParsedOrder parsed) {
         whatsApp.send(from,
             "Got it, " + customer.getFirstName() + "! " +
-            "What day — Monday, Wednesday, or Friday?"
+            "What day - Monday, Wednesday, or Friday?"
         );
     }
 

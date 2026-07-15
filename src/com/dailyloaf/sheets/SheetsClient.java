@@ -260,7 +260,7 @@ private void updateCell(String cellRange, String value) {
     if (rows.isEmpty()) return "DL-001";
 
     String lastId  = rows.get(rows.size() - 1).get(0);
-    int    lastNum = Integer.parseInt(lastId.replace("DL-", ""));
+    int lastNum = Integer.parseInt(lastId.replace("DL-", "").trim());
     return "DL-" + String.format("%03d", lastNum + 1);
 }
 
@@ -276,7 +276,7 @@ private String generateOrderId() {
 
         String   lastId  = rows.get(rows.size() - 1).get(0);
         String[] parts   = lastId.split("-");
-        int      lastNum = Integer.parseInt(parts[parts.length - 1]);
+        int lastNum = Integer.parseInt(parts[parts.length - 1].trim());
         return "ORD-" + year + "-" + String.format("%03d", lastNum + 1);
     }
 
@@ -318,13 +318,13 @@ private List<String> parseRow(String rowStr) {
             if (c == '"') {
                 inQuote = !inQuote;
             } else if (c == ',' && !inQuote) {
-                cells.add(current.toString());
+                cells.add(current.toString().trim());
                 current.setLength(0);
             } else {
                 current.append(c);
             }
         }
-        cells.add(current.toString());
+        cells.add(current.toString().trim());
         return cells;
     }
 
