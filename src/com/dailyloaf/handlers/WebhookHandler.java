@@ -105,6 +105,17 @@ public class WebhookHandler implements HttpHandler {
 
         System.out.println("[Webhook] Returning customer: " + customer);
 
+        // If they just said hi, greet them back before trying to parse an order
+        String normalisedText = text.trim().toLowerCase();
+        if (normalisedText.matches("hi|hii|wola|hello|hey|hola|sawubona|howzit")) {
+            whatsApp.send(from,
+                "Hey " + customer.getFirstName() + "! " +
+                "Ready to order? Just tell me what you need - " +
+                "e.g. '2 white friday' or 'same monday'."
+            );
+            return;
+        }
+
         ParsedOrder parsed = MessageParser.parse(text);
 
         if (parsed == null) {
@@ -218,7 +229,8 @@ public class WebhookHandler implements HttpHandler {
                     parsed.whiteLoaves,
                     parsed.brownLoaves,
                     parsed.totalLoaves(),
-                    parsed.totalLoaves() * 20
+                    parsed.totalLoaves() * 20,
+                    orderId
                 );
             }
         }
