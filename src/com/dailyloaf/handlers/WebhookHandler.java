@@ -265,13 +265,16 @@ public class WebhookHandler implements HttpHandler {
     }
 
     private void respond(HttpExchange exchange, int status,
-                         String body) throws IOException {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.sendResponseHeaders(status, bytes.length);
-        try (OutputStream os = exchange.getResponseBody()) {
-            os.write(bytes);
-        }
-    }
+                        String body) throws IOException {
+       exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+       exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+       exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+       byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+       exchange.sendResponseHeaders(status, bytes.length);
+       try (OutputStream os = exchange.getResponseBody()) {
+           os.write(bytes);
+       }
+   }
 
     private Map<String, String> queryParams(URI uri) {
         Map<String, String> params = new ConcurrentHashMap<>();

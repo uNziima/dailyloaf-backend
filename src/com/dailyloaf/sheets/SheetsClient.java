@@ -13,6 +13,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 /**
  *
  * @author Ulikhaya Mazibuko
@@ -37,6 +39,9 @@ public class SheetsClient {
     private static final int COL_O_WHITE_ORD  = 4;   // E
     private static final int COL_O_BROWN_ORD  = 5;   // F
     private static final int COL_O_STATUS     = 10;  // K
+    private static final int COL_O_AMOUNT     = 8;   // I
+    private static final int COL_O_PAYMENT    = 9;   // J
+    private static final int COL_O_DEL_NOTES  = 11;  // L
     
     private static final String BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets/";
     private static final int    TIMEOUT  = 15;
@@ -159,6 +164,67 @@ public class SheetsClient {
         }
         return result;
     }
+    
+    /**
+    * Returns all PAID orders for a delivery day, enriched with
+    * customer details (name, section, house, WhatsApp).
+    * Called by DeliveriesHandler to build the PWA delivery list.
+    */
+   public List<Map<String, String>> getDeliveriesForDay(String deliveryDay) {
+       List<Map<String, String>> result = new ArrayList<>();
+
+       // Step 1 — Load all customers into a lookup map
+       // Key: customer ID, Value: their row data
+       Map<String, List<String>> customerMap = new HashMap<>();
+       String custJson = getRange(TAB_CUSTOMERS + "!A2:Q");
+       if (custJson != null) {
+           for (List<String> row : parseValues(custJson)) {
+               if (!row.isEmpty()) {
+                   customerMap.put(row.get(COL_C_ID).trim(), row);
+               }
+           }
+       }
+
+       // Step 2 — Fetch PAID orders for the day
+       List<List<String>> orders = getPaidOrdersForDay(deliveryDay);
+
+       // Step 3 — Enrich each order with customer details
+       for (List<String> order : orders) {
+           if (order.size() < 10) continue;
+
+           String customerId = cell(order, COL_O_CUST_ID);
+           List<String> customer = customerMap.get(customerId.trim());
+
+           Map<String, String> stop = new HashMap<>();
+           stop.put("orderId",       cell(order, COL_O_ID));
+           stop.put("customerId",    customerId);
+           stop.put("deliveryDay",   cell(order, COL_O_DAY));
+           stop.put("whiteLoaves",   cell(order, COL_O_WHITE_ORD));
+           stop.put("brownLoaves",   cell(order, COL_O_BROWN_ORD));
+           stop.put("amount",        cell(order, COL_O_AMOUNT));
+           stop.put("paymentMethod", cell(order, COL_O_PAYMENT));
+           stop.put("deliveryNotes", cell(order, COL_O_DEL_NOTES));
+
+           // Add customer details if found
+           if (customer != null) {
+               stop.put("firstName",   cell(customer, COL_C_FIRST_NAME));
+               stop.put("surname",     cell(customer, COL_C_SURNAME));
+               stop.put("whatsapp",    cell(customer, COL_C_WHATSAPP));
+               stop.put("section",     cell(customer, COL_C_SECTION));
+               stop.put("houseNumber", cell(customer, COL_C_HOUSE));
+           } else {
+               stop.put("firstName",   "Unknown");
+               stop.put("surname",     "");
+               stop.put("whatsapp",    "");
+               stop.put("section",     "Unknown");
+               stop.put("houseNumber", "");
+           }
+
+           result.add(stop);
+       }
+
+       return result;
+   }
     
     private String getRange(String range) {
     try {

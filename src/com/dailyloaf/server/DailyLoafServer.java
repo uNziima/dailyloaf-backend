@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
+import com.dailyloaf.handlers.DeliveriesHandler;
 
 public class DailyLoafServer {
 
@@ -26,6 +27,7 @@ public class DailyLoafServer {
         server.createContext("/webhook", new WebhookHandler(config));
         server.createContext("/health",  this::handleHealth);
         server.createContext("/send", new SendHandler(config));
+        server.createContext("/deliveries", new DeliveriesHandler(config));
 
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.start();
