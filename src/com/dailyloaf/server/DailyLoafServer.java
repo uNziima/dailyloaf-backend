@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import com.dailyloaf.handlers.DeliveriesHandler;
+import com.dailyloaf.handlers.DeliverHandler;
 
 public class DailyLoafServer {
 
@@ -28,6 +29,7 @@ public class DailyLoafServer {
         server.createContext("/health",  this::handleHealth);
         server.createContext("/send", new SendHandler(config));
         server.createContext("/deliveries", new DeliveriesHandler(config));
+        server.createContext("/deliver", new DeliverHandler(config));
 
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.start();

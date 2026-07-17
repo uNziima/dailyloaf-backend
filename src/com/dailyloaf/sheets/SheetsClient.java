@@ -31,6 +31,7 @@ public class SheetsClient {
     private static final int COL_C_SECTION    = 4;   // E
     private static final int COL_C_HOUSE      = 5;   // F
     private static final int COL_C_STATUS     = 9;   // J
+    private static final int COL_C_ORDER_COUNT = 8;   // I
 
     // ORDERS tab columns (0-based)
     private static final int COL_O_ID         = 0;   // A
@@ -458,5 +459,72 @@ private List<String> parseRow(String rowStr) {
         String cellRange = TAB_ORDERS + "!J" + rowNumber;
         updateCell(cellRange, paymentMethod);
         System.out.println("[Sheets] Payment method updated: " + orderId + " → " + paymentMethod);
+    }
+    
+    /**
+    * Marks an order as DELIVERED and increments the customer's order count.
+    * Called by DeliverHandler when driver taps Delivered in the PWA.
+    */
+    public boolean markDelivered(String orderId, String customerId) {
+        // Step 1 — Find the order row and update status to DELIVERED
+        String orderRange  = TAB_ORDERS + "!A2:A";
+        String orderJson   = getRange(orderRange);
+        if (orderJson == null) return false;
+
+        List<List<String>> orderRows = parseValues(orderJson);
+        int orderRowNumber = -1;
+
+        for (int i = 0; i < orderRows.size(); i++) {
+            if (!orderRows.get(i).isEmpty() &&
+                orderId.trim().equals(orderRows.get(i).get(0).trim())) {
+                orderRowNumber = i + 2;
+                break;
+            }
+        }
+
+        if (orderRowNumber == -1) {
+            System.err.println("[Sheets] Order not found for delivery: " + orderId);
+            return false;
+        }
+
+        // Update status column (K) to DELIVERED
+        updateCell(TAB_ORDERS + "!K" + orderRowNumber, "DELIVERED");
+
+        // Update delivery timestamp (we'll use column L — delivery notes)
+        String timestamp = java.time.LocalDateTime.now().toString();
+        updateCell(TAB_ORDERS + "!L" + orderRowNumber, "Delivered at " + timestamp);
+
+        System.out.println("[Sheets] Order marked DELIVERED: " + orderId);
+
+        // Step 2 — Find the customer row and increment order count
+        String custRange = TAB_CUSTOMERS + "!A2:I";
+        String custJson  = getRange(custRange);
+        if (custJson == null) return true; // order updated, customer count failed
+
+        List<List<String>> custRows = parseValues(custJson);
+
+        for (int i = 0; i < custRows.size(); i++) {
+            List<String> row = custRows.get(i);
+            if (!row.isEmpty() && customerId.trim().equals(cell(row, COL_C_ID).trim())) {
+                int custRowNumber = i + 2;
+
+                // Increment Total Loaves (column H) and Order Count (column I)
+                int currentCount = 0;
+                try {
+                    currentCount = Integer.parseInt(cell(row, COL_C_ORDER_COUNT).trim());
+                } catch (NumberFormatException e) {
+                    currentCount = 0;
+                }
+
+                updateCell(TAB_CUSTOMERS + "!I" + custRowNumber,
+                           String.valueOf(currentCount + 1));
+
+                System.out.println("[Sheets] Customer order count incremented: " +
+                                   customerId + " → " + (currentCount + 1));
+                break;
+            }
+        }
+
+        return true;
     }
 }

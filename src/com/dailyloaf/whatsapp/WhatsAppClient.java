@@ -105,7 +105,7 @@ public class WhatsAppClient {
     public void sendEveningReminder(String to, String firstName,
                                     int totalLoaves) {
         send(to, String.format(
-            "Morning comes fast, %s — We've got your %d loaf%s for tomorrow. See you then.",
+            "Morning comes fast, %s - We've got your %d loaf%s for tomorrow. See you then.",
             firstName, totalLoaves, totalLoaves == 1 ? "" : "s"
         ));
     }
@@ -157,7 +157,7 @@ public class WhatsAppClient {
         send(to,
             """
             Hi! Welcome to Daily Loaf
-            We deliver fresh Albany bread to your door in Ikwezi every Mon, Wed & Fri morning.
+            We deliver fresh Albany bread to your door in Ikhwezi, Section 01 & Section 02 every Mon, Wed & Fri morning.
             
             Fill in this quick form to place your first order:
             """ +
@@ -170,6 +170,24 @@ public class WhatsAppClient {
                                Hey %s! To order just reply with your quantities and day.
                                Example: '2 white monday' or '1 white 1 brown friday'
                                Or reply 'same' to repeat your last order.""",
+            firstName
+        ));
+    }
+    
+    public void sendOnTheWay(String to, String firstName, 
+                            String deliveryDay) {
+      send(to, String.format(
+          "Morning %s! Your bread is on the way. " +
+          "We'll be there shortly. " +
+          "Please ensure that your cellphone is switched on. ",
+          firstName
+      ));
+    }
+    
+    public void sendWeAreOutside(String to, String firstName) {
+        send(to, String.format(
+            "Hi %s, we're outside your gate with your bread. " +
+            "Come collect when you're ready.",
             firstName
         ));
     }
