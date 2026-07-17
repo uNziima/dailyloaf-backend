@@ -109,7 +109,7 @@ public class SheetsClient {
       row.add(orderId);
       row.add(customerId);
       row.add(timestamp);
-      row.add(deliveryDay);
+      row.add(resolveDeliveryDate(deliveryDay)); // D - Delivery Date (actual date)
       row.add(String.valueOf(white));
       row.add(String.valueOf(brown));
       row.add(String.valueOf(white));   // White to deliver (same as ordered until credit applied)
@@ -122,7 +122,33 @@ public class SheetsClient {
 
       appendRow(TAB_ORDERS, row);
       return orderId;
-  }
+    }
+    
+    /**
+    * Calculates the actual calendar date of the next occurrence
+    * of a delivery day from today.
+    * e.g. if today is Sunday and deliveryDay is "Monday"
+    * returns next Monday's date as "2026-07-21"
+    */
+   private String resolveDeliveryDate(String deliveryDay) {
+       java.time.DayOfWeek target = switch (deliveryDay.toLowerCase()) {
+           case "monday"    -> java.time.DayOfWeek.MONDAY;
+           case "wednesday" -> java.time.DayOfWeek.WEDNESDAY;
+           case "friday"    -> java.time.DayOfWeek.FRIDAY;
+           default          -> java.time.DayOfWeek.MONDAY;
+       };
+
+       java.time.LocalDate today = java.time.LocalDate.now(
+           java.time.ZoneId.of("Africa/Johannesburg")
+       );
+
+       java.time.LocalDate next = today;
+       while (next.getDayOfWeek() != target) {
+           next = next.plusDays(1);
+       }
+
+       return next.toString(); // "2026-07-21"
+   }
     
     public void updateOrderStatus(String orderId, OrderStatus newStatus) {
         String range   = TAB_ORDERS + "!A2:A";
@@ -155,13 +181,26 @@ public class SheetsClient {
         List<List<String>> result = new ArrayList<>();
         if (rawJson == null) return result;
 
+        // Get today's date in SAST
+        java.time.LocalDate today = java.time.LocalDate.now(
+            java.time.ZoneId.of("Africa/Johannesburg")
+        );
+        String todayStr = today.toString(); // "2026-07-20"
+
         List<List<String>> rows = parseValues(rawJson);
         for (List<String> row : rows) {
-            boolean dayMatch    = row.size() > COL_O_DAY    &&
-                                  deliveryDay.equalsIgnoreCase(row.get(COL_O_DAY));
-            boolean statusMatch = row.size() > COL_O_STATUS &&
-                                  "PAID".equals(row.get(COL_O_STATUS));
-            if (dayMatch && statusMatch) result.add(row);
+            if (row.size() <= COL_O_STATUS) continue;
+
+            String storedDate = cell(row, COL_O_DAY).trim();
+            String status     = cell(row, COL_O_STATUS).trim();
+
+            // Match by exact date OR by day name (for backwards compatibility
+            // with any orders created before this fix)
+            boolean dateMatch = storedDate.equals(todayStr) ||
+                                storedDate.equalsIgnoreCase(deliveryDay);
+            boolean statusMatch = "PAID".equals(status);
+
+            if (dateMatch && statusMatch) result.add(row);
         }
         return result;
     }
