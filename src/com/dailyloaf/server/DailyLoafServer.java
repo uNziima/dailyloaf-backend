@@ -1,6 +1,7 @@
 package com.dailyloaf.server;
 
 import com.dailyloaf.config.Config;
+import com.dailyloaf.handlers.BroadcastHandler;
 import com.dailyloaf.handlers.SendHandler;
 import com.dailyloaf.handlers.WebhookHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -11,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import com.dailyloaf.handlers.DeliveriesHandler;
 import com.dailyloaf.handlers.DeliverHandler;
+import com.dailyloaf.handlers.NotDeliveredHandler;
 
 public class DailyLoafServer {
 
@@ -30,6 +32,8 @@ public class DailyLoafServer {
         server.createContext("/send", new SendHandler(config));
         server.createContext("/deliveries", new DeliveriesHandler(config));
         server.createContext("/deliver", new DeliverHandler(config));
+        server.createContext("/not-delivered", new NotDeliveredHandler(config));
+        server.createContext("/broadcast", new BroadcastHandler(config));
 
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.start();

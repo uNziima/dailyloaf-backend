@@ -527,4 +527,42 @@ private List<String> parseRow(String rowStr) {
 
         return true;
     }
+    
+    /**
+    * Marks an order as CANCELLED and logs the reason.
+    * Called by NotDeliveredHandler when driver taps Not Delivered in PWA.
+    */
+   public boolean markNotDelivered(String orderId, String reason) {
+       String orderRange = TAB_ORDERS + "!A2:A";
+       String orderJson  = getRange(orderRange);
+       if (orderJson == null) return false;
+
+       List<List<String>> orderRows = parseValues(orderJson);
+       int orderRowNumber = -1;
+
+       for (int i = 0; i < orderRows.size(); i++) {
+           if (!orderRows.get(i).isEmpty() &&
+               orderId.trim().equals(orderRows.get(i).get(0).trim())) {
+               orderRowNumber = i + 2;
+               break;
+           }
+       }
+
+       if (orderRowNumber == -1) {
+           System.err.println("[Sheets] Order not found: " + orderId);
+           return false;
+       }
+
+       // Update status to CANCELLED
+       updateCell(TAB_ORDERS + "!K" + orderRowNumber, "CANCELLED");
+
+       // Log the reason in delivery notes column (L)
+       String timestamp = java.time.LocalDateTime.now().toString();
+       updateCell(TAB_ORDERS + "!L" + orderRowNumber,
+                  "Not delivered — " + reason + " — " + timestamp);
+
+       System.out.println("[Sheets] Order marked CANCELLED: " + orderId +
+                          " | Reason: " + reason);
+       return true;
+   }
 }
