@@ -117,6 +117,14 @@ public class Config {
     public String getBusinessPhoneNumber() {
         return get("business.phone_number");
     }
+    
+    public String getDeliveryOsKey() {
+        return get("delivery.os.key");
+    }
+
+    public String getGoogleMapsApiKey() {
+        return get("google.maps.api.key");
+    }
 }
 
 

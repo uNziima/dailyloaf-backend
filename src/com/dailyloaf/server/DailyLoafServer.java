@@ -13,6 +13,8 @@ import java.util.concurrent.Executors;
 import com.dailyloaf.handlers.DeliveriesHandler;
 import com.dailyloaf.handlers.DeliverHandler;
 import com.dailyloaf.handlers.NotDeliveredHandler;
+import com.dailyloaf.handlers.ConfigHandler;
+import com.dailyloaf.server.StaticFileHandler;
 
 public class DailyLoafServer {
 
@@ -34,6 +36,9 @@ public class DailyLoafServer {
         server.createContext("/deliver", new DeliverHandler(config));
         server.createContext("/not-delivered", new NotDeliveredHandler(config));
         server.createContext("/broadcast", new BroadcastHandler(config));
+        server.createContext("/config", new ConfigHandler(config));
+        server.createContext("/delivery-os",
+            new StaticFileHandler("delivery-os"));
 
         server.setExecutor(Executors.newFixedThreadPool(4));
         server.start();

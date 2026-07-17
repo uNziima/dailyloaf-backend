@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Daily Loaf Delivery OS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ACCESS DENIED SCREEN — shown if wrong key -->
+  <div id="access-denied" class="hidden">
+    <div class="denied-box">
+      <h2>Access Denied</h2>
+      <p>You don't have permission to access this page.</p>
+    </div>
+  </div>
+
+  <!-- MAIN APP — shown after key is verified -->
+  <div id="app" class="hidden">
+
+    <!-- TOP BAR -->
+    <div id="top-bar">
+      <div id="top-left">
+        <span id="app-title">Daily Loaf Delivery OS</span>
+        <span id="delivery-date"></span>
+      </div>
+      <button id="share-btn" onclick="shareRoute()">Share</button>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div id="progress-container">
+      <div id="progress-bar">
+        <div id="progress-fill"></div>
+      </div>
+      <span id="progress-text">Loading...</span>
+    </div>
+
+    <!-- BROADCAST BUTTON -->
+    <div id="broadcast-container">
+      <button id="broadcast-btn" onclick="broadcastOnTheWay()">
+        Start Deliveries - Send "On the Way" to all customers
+      </button>
+    </div>
+
+    <!-- SECTION FILTER -->
+    <div id="filter-container">
+      <span id="filter-label">Filter:</span>
+      <div id="filter-buttons">
+        <button class="filter-btn active" onclick="filterSection('All')">All</button>
+        <button class="filter-btn" onclick="filterSection('Ikwezi')">Ikhwezi</button>
+        <button class="filter-btn" onclick="filterSection('Section 1')">Sec 1</button>
+        <button class="filter-btn" onclick="filterSection('Section 2')">Sec 2</button>
+        <button class="filter-btn" onclick="filterSection('Section 3')">Sec 3</button>
+        <button class="filter-btn" onclick="filterSection('Section 4')">Sec 4</button>
+        <button class="filter-btn" onclick="filterSection('Section 5')">Sec 5</button>
+        <button class="filter-btn" onclick="filterSection('Section 6')">Sec 6</button>
+        <button class="filter-btn" onclick="filterSection('Section 7')">Sec 7</button>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div id="map"></div>
+
+    <!-- STOP DETAIL PANEL — shown when a stop is selected -->
+    <div id="stop-panel" class="hidden">
+      <div id="stop-header">
+        <span id="stop-number"></span>
+        <span id="stop-name"></span>
+        <span id="stop-status-badge"></span>
+      </div>
+      <div id="stop-details">
+        <div class="detail-row">
+          <span class="detail-label">Address</span>
+          <span id="stop-address"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Order</span>
+          <span id="stop-order"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Payment</span>
+          <span id="stop-payment"></span>
+        </div>
+        <div class="detail-row" id="stop-notes-row">
+          <span class="detail-label">Note</span>
+          <span id="stop-notes"></span>
+        </div>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div id="action-buttons">
+        <button class="action-btn outside-btn"
+                onclick="sendOutside()">
+          We're Outside
+        </button>
+        <button class="action-btn deliver-btn"
+                onclick="markDelivered()">
+         Delivered
+        </button>
+        <button class="action-btn not-deliver-btn"
+                onclick="showNotDeliveredModal()">
+         Not Delivered
+        </button>
+      </div>
+
+      <!-- CASH TOGGLE — only shown for cash orders -->
+      <div id="cash-container" class="hidden">
+        <button id="cash-btn" onclick="toggleCash()">
+         Cash Collected  R<span id="cash-amount"></span>
+        </button>
+      </div>
+
+      <!-- RUNNING CASH TOTAL -->
+      <div id="cash-total-container">
+        Total cash collected: <strong>R<span id="cash-total">0</span></strong>
+      </div>
+    </div>
+
+    <!-- NOT DELIVERED MODAL -->
+    <div id="not-delivered-modal" class="hidden">
+      <div id="modal-box">
+        <h3>Why wasn't this delivered?</h3>
+        <button class="reason-btn"
+                onclick="confirmNotDelivered('no answer')">
+          No Answer
+        </button>
+        <button class="reason-btn"
+                onclick="confirmNotDelivered('wrong address')">
+          Wrong Address
+        </button>
+        <button class="reason-btn"
+                onclick="confirmNotDelivered('cancelled')">
+          Cancelled
+        </button>
+        <button class="reason-btn"
+                onclick="confirmNotDelivered('other')">
+          Other
+        </button>
+        <button id="modal-cancel"
+                onclick="hideNotDeliveredModal()">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <!-- NO ORDERS MESSAGE -->
+    <div id="no-orders" class="hidden">
+      <div id="no-orders-box">
+        <h2>No deliveries scheduled for today.</h2>
+        <p>All PAID orders for today will appear here.</p>
+      </div>
+    </div>
+
+  </div><!-- end #app -->
+
+  <!-- Google Maps API — key injected by app.js -->
+  <script src="app.js"></script>
+
+</body>
+</html>
