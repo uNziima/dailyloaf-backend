@@ -20,6 +20,10 @@ public class SendHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            respond(exchange, 204, "");
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             respond(exchange, 405, "Method Not Allowed");
             return;

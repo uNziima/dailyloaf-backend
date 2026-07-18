@@ -32,6 +32,8 @@ public class SheetsClient {
     private static final int COL_C_HOUSE      = 5;   // F
     private static final int COL_C_STATUS     = 9;   // J
     private static final int COL_C_ORDER_COUNT = 8;   // I
+    private static final int COL_C_LATITUDE  = 17;  // R
+    private static final int COL_C_LONGITUDE = 18;  // S
 
     // ORDERS tab columns (0-based)
     private static final int COL_O_ID         = 0;   // A
@@ -603,5 +605,56 @@ private List<String> parseRow(String rowStr) {
        System.out.println("[Sheets] Order marked CANCELLED: " + orderId +
                           " | Reason: " + reason);
        return true;
+   }
+   
+   /**
+    * Returns saved coordinates for a customer, or null if not yet geocoded.
+    */
+   public double[] getSavedCoordinates(String customerId) {
+       String range   = TAB_CUSTOMERS + "!A2:S";
+       String rawJson = getRange(range);
+       if (rawJson == null) return null;
+
+       for (List<String> row : parseValues(rawJson)) {
+           if (row.isEmpty()) continue;
+           if (!customerId.trim().equals(cell(row, COL_C_ID).trim())) continue;
+
+           String lat = cell(row, COL_C_LATITUDE).trim();
+           String lng = cell(row, COL_C_LONGITUDE).trim();
+
+           if (!lat.isEmpty() && !lng.isEmpty()) {
+               try {
+                   return new double[]{
+                       Double.parseDouble(lat),
+                       Double.parseDouble(lng)
+                   };
+               } catch (NumberFormatException e) {
+                   return null;
+               }
+           }
+       }
+       return null;
+   }
+
+   /**
+    * Saves geocoded coordinates to the CUSTOMERS tab.
+    * Called once per customer — never geocodes the same house twice.
+    */
+   public void saveCoordinates(String customerId, double lat, double lng) {
+       String range   = TAB_CUSTOMERS + "!A2:A";
+       String rawJson = getRange(range);
+       if (rawJson == null) return;
+
+       List<List<String>> rows = parseValues(rawJson);
+       for (int i = 0; i < rows.size(); i++) {
+           if (rows.get(i).isEmpty()) continue;
+           if (customerId.trim().equals(rows.get(i).get(0).trim())) {
+               int rowNumber = i + 2;
+               updateCell(TAB_CUSTOMERS + "!R" + rowNumber, String.valueOf(lat));
+               updateCell(TAB_CUSTOMERS + "!S" + rowNumber, String.valueOf(lng));
+               System.out.println("[Sheets] Coordinates saved for " + customerId);
+               return;
+           }
+       }
    }
 }

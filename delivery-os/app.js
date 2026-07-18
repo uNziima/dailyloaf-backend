@@ -176,8 +176,6 @@ async function plotStops() {
     `${s.houseNumber} ${s.section}, Madadeni, KwaZulu-Natal, South Africa`
   );
 
-  geocodedStops = await geocodeAll(addresses);
-
   // Place a numbered marker for each stop
   stops.forEach((stop, i) => {
     const position = geocodedStops[i];
@@ -190,57 +188,6 @@ async function plotStops() {
 
   fitMapToMarkers();
   drawRoute();
-}
-
-// ── Geocoding ─────────────────────────────────────────────
-// Geocodes all addresses sequentially with a 200ms gap
-// to stay inside Google's rate limit.
-async function geocodeAll(addresses) {
-  const results = [];
-  for (const address of addresses) {
-    const pos = await geocodeAddress(address);
-    results.push(pos);
-    await sleep(200);
-  }
-  return results;
-}
-
-function geocodeAddress(address) {
-    return new Promise(resolve => {
-        // Bounding box covering Madadeni A and B
-        const bounds = new google.maps.LatLngBounds(
-            new google.maps.LatLng(-27.8020, 29.9300),  // SW
-            new google.maps.LatLng(-27.7600, 29.9700)   // NE
-        );
-
-        geocoder.geocode(
-            {
-                address:  address,
-                bounds:   bounds,
-                region:   'ZA',
-                language: 'en'
-            },
-            (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const loc = results[0].geometry.location;
-                    const lat = loc.lat();
-                    const lng = loc.lng();
-
-                    // Verify result is within Madadeni bounds
-                    // Reject if Google returned something far away
-                    if (lat > -27.8200 && lat < -27.7400 &&
-                        lng >  29.9100 && lng <  29.9900) {
-                        resolve(loc);
-                    } else {
-                        // Result was outside Madadeni — use section centre
-                        resolve(null);
-                    }
-                } else {
-                    resolve(null);
-                }
-            }
-        );
-    });
 }
 
 // Approximate centres for each section in Madadeni.
@@ -565,12 +512,12 @@ function toggleCash() {
     cashCollected[currentStop.orderId] = false;
     cashTotal -= amount;
     btn.classList.remove('collected');
-    btn.textContent = `💵 Cash Collected — R${amount}`;
+    btn.textContent = `Cash Collected — R${amount}`;
   } else {
     cashCollected[currentStop.orderId] = true;
     cashTotal += amount;
     btn.classList.add('collected');
-    btn.textContent = `✓ Cash Collected — R${amount}`;
+    btn.textContent = `Cash Collected — R${amount}`;
   }
 
   document.getElementById('cash-total').textContent = cashTotal;
@@ -594,11 +541,11 @@ async function broadcastOnTheWay() {
     );
     const data = await res.json();
 
-    showToast(`✓ Sent to ${data.sent} customers`);
-    btn.textContent = `✓ Sent to ${data.sent} customers`;
+    showToast(`Sent to ${data.sent} customers`);
+    btn.textContent = `Sent to ${data.sent} customers`;
 
   } catch (err) {
-    btn.textContent = '🚀 Start Deliveries — Send "On the Way"';
+    btn.textContent = 'Start Deliveries — Send "On the Way"';
     btn.disabled    = false;
     showToast('Failed to broadcast');
   }
@@ -686,66 +633,26 @@ function showToast(message) {
   setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }
 
-// Strips leading/trailing letters from house numbers
-// A9553 → 9553,  G12292 → 12292,  9553B → 9553
-function cleanHouseNumber(raw) {
-    if (!raw) return '';
-    return raw.toString().trim()
-              .replace(/^[A-Za-z]+/, '')
-              .replace(/[A-Za-z]+$/, '')
-              .trim();
-}
-
-// Maps section names to their Google Maps Madadeni equivalent
-// Sections 3-7 return null — fallback to section centre
-function sectionToMadadeni(section) {
-    if (!section) return null;
-    const s = section.trim().toLowerCase();
-    if (s === 'ikwezi' || s === 'ikhwezi' || s === 'section 1') {
-        return 'Madadeni A';
-    }
-    if (s === 'section 2') {
-        return 'Madadeni B';
-    }
-    // Sections 3-7 not mapped yet
-    return null;
-}
-
-// Builds the best possible geocoding address for a stop
-function buildGeocodingAddress(stop) {
-    const number   = cleanHouseNumber(stop.houseNumber);
-    const madadeni = sectionToMadadeni(stop.section);
-
-    if (madadeni && number) {
-        return `${number} ${madadeni}, Newcastle, KwaZulu-Natal, South Africa`;
-    }
-    // Fallback for unmapped sections — return null to use section centre
-    return null;
-}
-
 async function plotStops() {
     geocodedStops = [];
 
-    for (const stop of stops) {
-        const address = buildGeocodingAddress(stop);
-
+    stops.forEach((stop, i) => {
         let position = null;
-        if (address) {
-            position = await geocodeAddress(address);
-            await sleep(200);
-        }
 
-        // Fall back to section centre if geocoding failed or no address
-        if (!position) {
+        // Use backend-provided coordinates if available
+        if (stop.lat && stop.lng &&
+            stop.lat !== '' && stop.lng !== '') {
+            position = new google.maps.LatLng(
+                parseFloat(stop.lat),
+                parseFloat(stop.lng)
+            );
+        } else {
+            // Fall back to section centre
             position = getSectionCentre(stop.section);
         }
 
         geocodedStops.push(position);
-    }
 
-    const idx = stops.indexOf;
-    stops.forEach((stop, i) => {
-        const position = geocodedStops[i];
         if (!position) return;
         const marker = buildMarker(i + 1, position, stop, 'pending');
         markers[stop.orderId] = marker;

@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.dailyloaf.sheets.GeocodingClient;
 /**
  *
  * @author Ulikhaya Mazibuko
@@ -19,9 +20,11 @@ import java.util.Map;
 public class DeliveriesHandler implements HttpHandler {
 
     private final SheetsClient sheets;
-
+    private final GeocodingClient geocoder;
+    
     public DeliveriesHandler(Config config) {
         this.sheets = new SheetsClient(config);
+        this.geocoder = new GeocodingClient(config.getGoogleMapsApiKey());
     }
 
     @Override
@@ -50,6 +53,32 @@ public class DeliveriesHandler implements HttpHandler {
         // Fetch enriched delivery stops from Sheets
         List<Map<String, String>> stops = sheets.getDeliveriesForDay(day);
 
+        // Enrich each stop with coordinates
+        for (Map<String, String> stop : stops) {
+            String customerId = stop.get("customerId");
+            String houseNumber = stop.get("houseNumber");
+            String section     = stop.get("section");
+
+            // Check saved coordinates first
+            double[] saved = sheets.getSavedCoordinates(customerId);
+
+            if (saved != null) {
+                stop.put("lat", String.valueOf(saved[0]));
+                stop.put("lng", String.valueOf(saved[1]));
+                System.out.println("[Deliveries] Using saved coords for " + customerId);
+            } else {
+                // Geocode for the first time
+                double[] found = geocoder.geocode(houseNumber, section);
+                if (found != null) {
+                    stop.put("lat", String.valueOf(found[0]));
+                    stop.put("lng", String.valueOf(found[1]));
+                    sheets.saveCoordinates(customerId, found[0], found[1]);
+                } else {
+                    stop.put("lat", "");
+                    stop.put("lng", "");
+                }
+            }
+        }
         System.out.println("[Deliveries] Found " + stops.size() + " stops.");
 
         // Build JSON response
@@ -78,6 +107,8 @@ public class DeliveriesHandler implements HttpHandler {
             sb.append("\"amount\":")       .append(quote(stop.get("amount")))       .append(",");
             sb.append("\"paymentMethod\":").append(quote(stop.get("paymentMethod"))).append(",");
             sb.append("\"deliveryNotes\":").append(quote(stop.get("deliveryNotes")));
+            sb.append("\"lat\":")  .append(quote(stop.get("lat")))  .append(",");
+            sb.append("\"lng\":")  .append(quote(stop.get("lng")));
             sb.append("}");
         }
         sb.append("]");
