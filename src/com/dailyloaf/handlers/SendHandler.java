@@ -28,6 +28,10 @@ public class SendHandler implements HttpHandler {
         String body = readBody(exchange);
         String to      = Json.getString(body, "to");
         String message = Json.getString(body, "message");
+        
+        // TEMP DEBUG
+        System.out.println("[Send] body=" + body);
+        System.out.println("[Send] to=" + to + " message=" + message);
 
         if (to == null || message == null) {
             respond(exchange, 400, "Missing to or message");

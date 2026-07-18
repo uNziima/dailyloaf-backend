@@ -206,16 +206,41 @@ async function geocodeAll(addresses) {
 }
 
 function geocodeAddress(address) {
-  return new Promise(resolve => {
-    geocoder.geocode({ address }, (results, status) => {
-      if (status === 'OK' && results[0]) {
-        resolve(results[0].geometry.location);
-      } else {
-        // Geocoding failed — fall back to section centre
-        resolve(sectionCentre(address));
-      }
+    return new Promise(resolve => {
+        // Bounding box covering Madadeni A and B
+        const bounds = new google.maps.LatLngBounds(
+            new google.maps.LatLng(-27.8020, 29.9300),  // SW
+            new google.maps.LatLng(-27.7600, 29.9700)   // NE
+        );
+
+        geocoder.geocode(
+            {
+                address:  address,
+                bounds:   bounds,
+                region:   'ZA',
+                language: 'en'
+            },
+            (results, status) => {
+                if (status === 'OK' && results[0]) {
+                    const loc = results[0].geometry.location;
+                    const lat = loc.lat();
+                    const lng = loc.lng();
+
+                    // Verify result is within Madadeni bounds
+                    // Reject if Google returned something far away
+                    if (lat > -27.8200 && lat < -27.7400 &&
+                        lng >  29.9100 && lng <  29.9900) {
+                        resolve(loc);
+                    } else {
+                        // Result was outside Madadeni — use section centre
+                        resolve(null);
+                    }
+                } else {
+                    resolve(null);
+                }
+            }
+        );
     });
-  });
 }
 
 // Approximate centres for each section in Madadeni.
