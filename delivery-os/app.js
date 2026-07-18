@@ -658,6 +658,95 @@ function showToast(message) {
   setTimeout(() => { toast.style.opacity = '0'; }, 3000);
 }
 
+// Strips leading/trailing letters from house numbers
+// A9553 → 9553,  G12292 → 12292,  9553B → 9553
+function cleanHouseNumber(raw) {
+    if (!raw) return '';
+    return raw.toString().trim()
+              .replace(/^[A-Za-z]+/, '')
+              .replace(/[A-Za-z]+$/, '')
+              .trim();
+}
+
+// Maps section names to their Google Maps Madadeni equivalent
+// Sections 3-7 return null — fallback to section centre
+function sectionToMadadeni(section) {
+    if (!section) return null;
+    const s = section.trim().toLowerCase();
+    if (s === 'ikwezi' || s === 'ikhwezi' || s === 'section 1') {
+        return 'Madadeni A';
+    }
+    if (s === 'section 2') {
+        return 'Madadeni B';
+    }
+    // Sections 3-7 not mapped yet
+    return null;
+}
+
+// Builds the best possible geocoding address for a stop
+function buildGeocodingAddress(stop) {
+    const number   = cleanHouseNumber(stop.houseNumber);
+    const madadeni = sectionToMadadeni(stop.section);
+
+    if (madadeni && number) {
+        return `${number} ${madadeni}, Newcastle, KwaZulu-Natal, South Africa`;
+    }
+    // Fallback for unmapped sections — return null to use section centre
+    return null;
+}
+
+async function plotStops() {
+    geocodedStops = [];
+
+    for (const stop of stops) {
+        const address = buildGeocodingAddress(stop);
+
+        let position = null;
+        if (address) {
+            position = await geocodeAddress(address);
+            await sleep(200);
+        }
+
+        // Fall back to section centre if geocoding failed or no address
+        if (!position) {
+            position = getSectionCentre(stop.section);
+        }
+
+        geocodedStops.push(position);
+    }
+
+    const idx = stops.indexOf;
+    stops.forEach((stop, i) => {
+        const position = geocodedStops[i];
+        if (!position) return;
+        const marker = buildMarker(i + 1, position, stop, 'pending');
+        markers[stop.orderId] = marker;
+        marker.addListener('click', () => selectStop(i));
+    });
+
+    fitMapToMarkers();
+    drawRoute();
+}
+
+function getSectionCentre(section) {
+    const s = (section || '').trim().toLowerCase();
+    const centres = {
+        'ikwezi':    { lat: -27.7820, lng: 29.9480 },
+        'ikhwezi':   { lat: -27.7820, lng: 29.9480 },
+        'section 1': { lat: -27.7800, lng: 29.9460 },
+        'section 2': { lat: -27.7780, lng: 29.9500 },
+        'section 3': { lat: -27.7760, lng: 29.9520 },
+        'section 4': { lat: -27.7740, lng: 29.9540 },
+        'section 5': { lat: -27.7720, lng: 29.9560 },
+        'section 6': { lat: -27.7700, lng: 29.9580 },
+        'section 7': { lat: -27.7680, lng: 29.9600 },
+    };
+    const centre = centres[s];
+    return centre
+        ? new google.maps.LatLng(centre.lat, centre.lng)
+        : new google.maps.LatLng(-27.7833, 29.9500);
+}
+
 // ── Utility ───────────────────────────────────────────────
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
