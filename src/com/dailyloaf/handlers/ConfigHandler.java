@@ -25,6 +25,10 @@ public class ConfigHandler implements HttpHandler {
 
         String requestKey  = queryParam(exchange.getRequestURI(), "key");
         String expectedKey = config.getDeliveryOsKey();
+        
+        // TEMPORARY DEBUG — remove after fixing
+        System.out.println("[Config] requestKey='" + requestKey + 
+                           "' expectedKey='" + expectedKey + "'");
 
         if (expectedKey == null || !expectedKey.equals(requestKey)) {
             respond(exchange, 403, "{\"error\":\"Forbidden\"}");

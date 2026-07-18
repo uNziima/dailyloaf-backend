@@ -47,6 +47,11 @@ public class Config {
                     props.setProperty(key, value);
                 }
             }
+            
+            // Explicit mappings for keys with non-standard conversion
+            mapEnv(props, "delivery.os.key",      "DELIVERY_OS_KEY");
+            mapEnv(props, "google.maps.api.key",  "GOOGLE_MAPS_API_KEY");
+            mapEnv(props, "business.phone_number","BUSINESS_PHONE_NUMBER");
         }
 
         Config config = new Config(props);
@@ -125,6 +130,16 @@ public class Config {
     public String getGoogleMapsApiKey() {
         return get("google.maps.api.key");
     }
+    
+    private static void mapEnv(Properties props, String propKey, String envKey) {
+        String value = System.getenv(envKey);
+        if (value != null && !value.isBlank()) {
+            props.setProperty(propKey, value);
+            System.out.println("[Config] Loaded " + propKey + " from " + envKey);
+        } else {
+            System.out.println("[Config] WARNING: " + envKey + " not found in environment");
+        }
+}
 }
 
 
