@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 public class ConfigHandler implements HttpHandler {
 
     private final Config config;
-    private Object key;
 
     public ConfigHandler(Config config) {
         this.config = config;
@@ -24,15 +23,18 @@ public class ConfigHandler implements HttpHandler {
             return;
         }
 
+        String requestKey  = queryParam(exchange.getRequestURI(), "key");
         String expectedKey = config.getDeliveryOsKey();
-            if (expectedKey == null || !expectedKey.equals(key)) {
-                respond(exchange, 403, "{\"error\":\"Forbidden\"}");
-                return;
-            }
+
+        if (expectedKey == null || !expectedKey.equals(requestKey)) {
+            respond(exchange, 403, "{\"error\":\"Forbidden\"}");
+            return;
+        }
 
         String mapsKey = config.getGoogleMapsApiKey();
         if (mapsKey == null) mapsKey = "";
         String json = "{\"mapsKey\":\"" + mapsKey + "\"}";
+        respond(exchange, 200, json);
     }
 
     private String queryParam(URI uri, String name) {
