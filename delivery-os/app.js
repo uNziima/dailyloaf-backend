@@ -36,10 +36,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('app').classList.remove('hidden');
 
   // Set today's delivery day and display date
-    // Allow manual day override via URL for testing
-  // e.g. ?key=xxx&day=Friday
-  const dayOverride = urlParams.get('day');
-  deliveryDay = dayOverride || getTodayDeliveryDay();
+  // Allow manual day override via URL for testing
+// e.g. ?key=xxx&day=Friday
+const dayOverride = urlParams.get('day');
+deliveryDay = dayOverride || getTodayDeliveryDay();
   setDateDisplay();
 
   // Fetch the Maps API key from backend then load Maps
@@ -383,10 +383,10 @@ function selectStop(index) {
     const cashBtn = document.getElementById('cash-btn');
     if (cashCollected[stop.orderId]) {
       cashBtn.classList.add('collected');
-      cashBtn.textContent = `✓ Cash Collected — R${stop.amount}`;
+      cashBtn.textContent = `Cash Collected - R${stop.amount}`;
     } else {
       cashBtn.classList.remove('collected');
-      cashBtn.textContent = `💵 Cash Collected — R${stop.amount}`;
+      cashBtn.textContent = `Cash Collected - R${stop.amount}`;
     }
   } else {
     cashContainer.classList.add('hidden');
@@ -408,7 +408,7 @@ async function sendOutside() {
   if (!currentStop) return;
 
   try {
-    const res = await fetch(`${BACKEND}/send?key=${accessKey}`, {
+    const res = await fetch(`${BACKEND}/send`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -435,7 +435,7 @@ async function markDelivered() {
   btn.disabled    = true;
 
   try {
-    const res = await fetch(`${BACKEND}/deliver?key=${accessKey}`, {
+    const res = await fetch(`${BACKEND}/deliver`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -495,7 +495,7 @@ async function confirmNotDelivered(reason) {
   if (!currentStop) return;
 
   try {
-    const res = await fetch(`${BACKEND}/not-delivered?key=${accessKey}`, {
+    const res = await fetch(`${BACKEND}/not-delivered`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
