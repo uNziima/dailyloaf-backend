@@ -123,7 +123,7 @@ public class GeocodingClient {
     private double[] callGeocodingApi(String address) {
         try {
             String encoded = URLEncoder.encode(address, StandardCharsets.UTF_8);
-            String bounds  = "-27.7800,29.9900|-27.7300,30.0600";
+            String bounds  = "-27.7800,29.9900%7C-27.7300,30.0600";
             String url     = GEOCODE_URL +
                              "?address=" + encoded +
                              "&bounds="  + bounds  +
