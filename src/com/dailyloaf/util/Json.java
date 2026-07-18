@@ -78,4 +78,17 @@ public class Json {
             .replace("\\r",  "\r")
             .replace("\\t",  "\t");
     }
+    
+    /**
+    * Extracts a decimal number value by key.
+    * Works for: "lat": -27.7821 (unquoted decimal)
+    */
+   public static Double getDouble(String json, String key) {
+       if (json == null || key == null) return null;
+       Pattern p = Pattern.compile(
+           "\"" + Pattern.quote(key) + "\"\\s*:\\s*(-?\\d+\\.?\\d*)"
+       );
+       Matcher m = p.matcher(json);
+       return m.find() ? Double.parseDouble(m.group(1)) : null;
+   }
 }

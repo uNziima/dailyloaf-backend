@@ -145,14 +145,13 @@ public class GeocodingClient {
             String status = Json.getString(body, "status");
             if (!"OK".equals(status)) return null;
 
-            // Extract lat and lng from response
-            String lat = Json.getString(body, "lat");
-            String lng = Json.getString(body, "lng");
+            Double lat = Json.getDouble(body, "lat");
+            Double lng = Json.getDouble(body, "lng");
 
             if (lat == null || lng == null) return null;
 
-            double latVal = Double.parseDouble(lat);
-            double lngVal = Double.parseDouble(lng);
+            double latVal = lat;
+            double lngVal = lng;
 
             // Verify result is within Madadeni bounds
             if (latVal < BOUND_LAT_MIN || latVal > BOUND_LAT_MAX ||
