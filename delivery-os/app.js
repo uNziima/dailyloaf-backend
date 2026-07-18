@@ -36,7 +36,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('app').classList.remove('hidden');
 
   // Set today's delivery day and display date
-  deliveryDay = getTodayDeliveryDay();
+    // Allow manual day override via URL for testing
+  // e.g. ?key=xxx&day=Friday
+  const dayOverride = urlParams.get('day');
+  deliveryDay = dayOverride || getTodayDeliveryDay();
   setDateDisplay();
 
   // Fetch the Maps API key from backend then load Maps
