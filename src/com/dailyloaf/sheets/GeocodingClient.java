@@ -138,6 +138,9 @@ public class GeocodingClient {
 
             HttpResponse<String> res = http.send(req,
                 HttpResponse.BodyHandlers.ofString());
+            
+            // TEMP DEBUG
+            System.out.println("[Geocoding] API response: " + res.body());
 
             if (res.statusCode() != 200) return null;
 
