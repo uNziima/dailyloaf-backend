@@ -88,7 +88,7 @@ public class GeocodingClient {
 
     private String[] getStreets(String madadeniArea) {
         if ("Madadeni A".equals(madadeniArea)) {
-            return buildStreets("Ma", 1, 45);
+            return buildStreets("Ma", 1, 3); // TEMP: only 3 streets for diagnosis
         }
         if ("Madadeni B".equals(madadeniArea)) {
             return buildStreets("Mb", 1, 31);
@@ -142,6 +142,9 @@ public class GeocodingClient {
 
             HttpResponse<String> res = http.send(req,
                 HttpResponse.BodyHandlers.ofString());
+            
+            // TEMP DEBUG — remove after diagnosis
+            System.out.println("[Geocoding] Status: " + res.statusCode() + " | Response: " + res.body());
             
             if (res.statusCode() != 200) return null;
 
