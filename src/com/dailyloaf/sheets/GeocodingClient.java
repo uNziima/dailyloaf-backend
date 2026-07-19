@@ -122,13 +122,17 @@ public class GeocodingClient {
 
     private double[] callGeocodingApi(String address) {
         try {
-            String encoded = URLEncoder.encode(address, StandardCharsets.UTF_8);
-            String bounds  = "-27.7800,29.9900%7C-27.7300,30.0600";
-            String url     = GEOCODE_URL +
-                             "?address=" + encoded +
-                             "&bounds="  + bounds  +
-                             "&region=za" +
-                             "&key="     + apiKey;
+            String encodedAddress = URLEncoder.encode(address, StandardCharsets.UTF_8);
+            String encodedBounds  = URLEncoder.encode(
+                "-27.7800,29.9900|-27.7300,30.0600",
+                StandardCharsets.UTF_8
+            );
+
+            String url = GEOCODE_URL +
+                         "?address=" + encodedAddress +
+                         "&bounds="  + encodedBounds +
+                         "&region=za" +
+                         "&key="     + apiKey;
 
             HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -139,9 +143,6 @@ public class GeocodingClient {
             HttpResponse<String> res = http.send(req,
                 HttpResponse.BodyHandlers.ofString());
             
-            // TEMP DEBUG
-            System.out.println("[Geocoding] API response: " + res.body());
-
             if (res.statusCode() != 200) return null;
 
             String body   = res.body();
