@@ -50,17 +50,27 @@ public class GeocodingClient {
      * @param section     Section from form e.g. "Ikwezi", "Section 1", "Section 2"
      */
     public double[] geocode(String houseNumber, String section) {
-        String cleanNumber = cleanHouseNumber(houseNumber);
+        String cleanNumber  = cleanHouseNumber(houseNumber);
         if (cleanNumber.isEmpty()) return null;
 
         String madadeniArea = sectionToMadadeniArea(section);
-        String[] streets    = getStreets(madadeniArea);
+        if (madadeniArea == null) return null;
 
+        // Attempt 1 — direct erf number search
+        String directAddress = cleanNumber + " " + madadeniArea +
+                               ", Newcastle, KwaZulu-Natal, South Africa";
+        double[] direct = callGeocodingApi(directAddress);
+        if (direct != null) {
+            System.out.println("[Geocoding] Direct match: " + directAddress);
+            return direct;
+        }
+
+        // Attempt 2 — scan known streets
+        String[] streets = getStreets(madadeniArea);
         if (streets == null) return null;
 
         System.out.println("[Geocoding] Scanning " + streets.length +
-                           " streets for " + cleanNumber +
-                           " in " + madadeniArea);
+                           " streets for " + cleanNumber + " in " + madadeniArea);
 
         for (String street : streets) {
             String address = cleanNumber + " " + street + ", " +
@@ -68,19 +78,16 @@ public class GeocodingClient {
                              "KwaZulu-Natal, South Africa";
 
             double[] result = callGeocodingApi(address);
-
             if (result != null) {
-                System.out.println("[Geocoding] Found: " + address +
-                                   " → " + result[0] + ", " + result[1]);
+                System.out.println("[Geocoding] Found: " + address);
                 return result;
             }
 
-            // Small pause to respect Google's rate limit
             try { Thread.sleep(100); } catch (InterruptedException ignored) {}
         }
 
-        System.out.println("[Geocoding] No result found for " +
-                           cleanNumber + " in " + madadeniArea);
+        System.out.println("[Geocoding] No result for " + cleanNumber +
+                           " in " + madadeniArea);
         return null;
     }
 

@@ -55,7 +55,7 @@ public class DeliveriesHandler implements HttpHandler {
 
         // Enrich each stop with coordinates
         for (Map<String, String> stop : stops) {
-            String customerId = stop.get("customerId");
+            String customerId  = stop.get("customerId");
             String houseNumber = stop.get("houseNumber");
             String section     = stop.get("section");
 
@@ -63,20 +63,27 @@ public class DeliveriesHandler implements HttpHandler {
             double[] saved = sheets.getSavedCoordinates(customerId);
 
             if (saved != null) {
+                // Coordinates already saved — use immediately
                 stop.put("lat", String.valueOf(saved[0]));
                 stop.put("lng", String.valueOf(saved[1]));
                 System.out.println("[Deliveries] Using saved coords for " + customerId);
             } else {
-                // Geocode for the first time
-                double[] found = geocoder.geocode(houseNumber, section);
-                if (found != null) {
-                    stop.put("lat", String.valueOf(found[0]));
-                    stop.put("lng", String.valueOf(found[1]));
-                    sheets.saveCoordinates(customerId, found[0], found[1]);
-                } else {
-                    stop.put("lat", "");
-                    stop.put("lng", "");
-                }
+                // No saved coordinates — return empty now, geocode in background
+                stop.put("lat", "");
+                stop.put("lng", "");
+
+                // Fire geocoding on a background thread — doesn't block response
+                final String custId  = customerId;
+                final String houseNum = houseNumber;
+                final String sect    = section;
+
+                new Thread(() -> {
+                    double[] found = geocoder.geocode(houseNum, sect);
+                    if (found != null) {
+                        sheets.saveCoordinates(custId, found[0], found[1]);
+                        System.out.println("[Deliveries] Background geocode saved for " + custId);
+                    }
+                }).start();
             }
         }
         System.out.println("[Deliveries] Found " + stops.size() + " stops.");
