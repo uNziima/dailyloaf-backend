@@ -113,7 +113,7 @@ public class DeliveriesHandler implements HttpHandler {
             sb.append("\"brownLoaves\":")  .append(quote(stop.get("brownLoaves")))  .append(",");
             sb.append("\"amount\":")       .append(quote(stop.get("amount")))       .append(",");
             sb.append("\"paymentMethod\":").append(quote(stop.get("paymentMethod"))).append(",");
-            sb.append("\"deliveryNotes\":").append(quote(stop.get("deliveryNotes")));
+            sb.append("\"deliveryNotes\":").append(quote(stop.get("deliveryNotes"))).append(",");
             sb.append("\"lat\":")  .append(quote(stop.get("lat")))  .append(",");
             sb.append("\"lng\":")  .append(quote(stop.get("lng")));
             sb.append("}");
