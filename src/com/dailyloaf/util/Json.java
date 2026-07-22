@@ -97,6 +97,37 @@ public class Json {
     * Location messages have type "location" instead of type "text".
     */
    public static boolean isLocationMessage(String json) {
-       return json != null && json.contains("\"type\":\"location\"");
+        if (json == null) return false;
+        // Standard location share
+        if (json.contains("\"type\":\"location\"")) return true;
+        // Interactive button tap reply from location_request_message
+        if (json.contains("\"name\":\"send_location\"")) return true;
+        return false;
+    }
+   
+   /**
+    * Extracts the sender's WhatsApp number from a webhook payload.
+    * Searches specifically within the messages array to avoid
+    * capturing the business phone number from the context field,
+    * which appears in interactive message reply payloads.
+    */
+   public static String getMessageSender(String json) {
+       if (json == null) return null;
+
+       // Find the messages array first
+       int messagesStart = json.indexOf("\"messages\"");
+       if (messagesStart == -1) return null;
+
+       // Find the first "from" after the messages array starts
+       int fromStart = json.indexOf("\"from\"", messagesStart);
+       if (fromStart == -1) return null;
+
+       // Extract the value between the quotes after "from":
+       int colonPos   = json.indexOf(":", fromStart + 6);
+       int quoteOpen  = json.indexOf("\"", colonPos) + 1;
+       int quoteClose = json.indexOf("\"", quoteOpen);
+
+       if (quoteOpen <= 0 || quoteClose <= 0) return null;
+       return json.substring(quoteOpen, quoteClose);
    }
 }
