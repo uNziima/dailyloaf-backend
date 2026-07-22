@@ -81,7 +81,10 @@ public class WebhookHandler implements HttpHandler {
     }
 
     private void processMessage(String json) {
-        String from = Json.getString(json, "from");
+        // Use getMessageSender to ensure we get the customer's number,
+        // not the business number from the context field in interactive replies
+        String from = Json.getMessageSender(json);
+        if (from == null) from = Json.getString(json, "from");
 
         // Check for location share FIRST — location messages are not text messages
         // so they would be skipped by the isTextMessage check below
