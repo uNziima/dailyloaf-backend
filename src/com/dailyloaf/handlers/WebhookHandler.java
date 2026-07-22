@@ -81,12 +81,27 @@ public class WebhookHandler implements HttpHandler {
     }
 
     private void processMessage(String json) {
+        String from = Json.getString(json, "from");
+
+        // Check for location share FIRST — location messages are not text messages
+        // so they would be skipped by the isTextMessage check below
+        if (Json.isLocationMessage(json)) {
+            if (from != null) {
+                Customer customer = sheets.findCustomerByWhatsApp(from);
+                if (customer != null) {
+                    handleLocationShare(from, customer, json);
+                } else {
+                    System.out.println("[Webhook] Location from unknown number: " + from);
+                }
+            }
+            return;
+        }
+ 
         if (!Json.isTextMessage(json)) {
             System.out.println("[Webhook] Non-text webhook — skipping.");
             return;
         }
 
-        String from = Json.getString(json, "from");
         String text = Json.getString(json, "body");
 
         if (from == null || text == null) {
