@@ -41,14 +41,6 @@ public class GeocodingClient {
 
     // ── Public API ───────────────────────────────────────────
 
-    /**
-     * Finds the lat/lng for a house in Madadeni.
-     * Scans all known street patterns for the given section.
-     * Returns null if no valid location found within bounds.
-     *
-     * @param houseNumber Raw house number from form e.g. "A9553" or "9553"
-     * @param section     Section from form e.g. "Ikwezi", "Section 1", "Section 2"
-     */
     public double[] geocode(String houseNumber, String section) {
         String cleanNumber  = cleanHouseNumber(houseNumber);
         if (cleanNumber.isEmpty()) return null;
@@ -56,59 +48,12 @@ public class GeocodingClient {
         String madadeniArea = sectionToMadadeniArea(section);
         if (madadeniArea == null) return null;
 
-        // Attempt 1 — direct erf number search
-        String directAddress = cleanNumber + " " + madadeniArea +
-                               ", Newcastle, KwaZulu-Natal, South Africa";
-        double[] direct = callGeocodingApi(directAddress);
-        if (direct != null) {
-            System.out.println("[Geocoding] Direct match: " + directAddress);
-            return direct;
-        }
+        // Single attempt — direct erf number search
+        String address = cleanNumber + " " + madadeniArea +
+                         ", Newcastle, KwaZulu-Natal, South Africa";
 
-        // Attempt 2 — scan known streets
-        String[] streets = getStreets(madadeniArea);
-        if (streets == null) return null;
-
-        System.out.println("[Geocoding] Scanning " + streets.length +
-                           " streets for " + cleanNumber + " in " + madadeniArea);
-
-        for (String street : streets) {
-            String address = cleanNumber + " " + street + ", " +
-                             madadeniArea + ", Newcastle, " +
-                             "KwaZulu-Natal, South Africa";
-
-            double[] result = callGeocodingApi(address);
-            if (result != null) {
-                System.out.println("[Geocoding] Found: " + address);
-                return result;
-            }
-
-            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-        }
-
-        System.out.println("[Geocoding] No result for " + cleanNumber +
-                           " in " + madadeniArea);
-        return null;
-    }
-
-    // ── Street lists ─────────────────────────────────────────
-
-    private String[] getStreets(String madadeniArea) {
-        if ("Madadeni A".equals(madadeniArea)) {
-            return buildStreets("Ma", 1, 45); // TEMP: only 3 streets for diagnosis
-        }
-        if ("Madadeni B".equals(madadeniArea)) {
-            return buildStreets("Mb", 1, 31);
-        }
-        return null;
-    }
-
-    private String[] buildStreets(String prefix, int from, int to) {
-        String[] streets = new String[to - from + 1];
-        for (int i = from; i <= to; i++) {
-            streets[i - from] = prefix + i + " Street";
-        }
-        return streets;
+        System.out.println("[Geocoding] Trying: " + address);
+        return callGeocodingApi(address);
     }
 
     // ── Section mapping ──────────────────────────────────────

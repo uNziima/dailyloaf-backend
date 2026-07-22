@@ -91,4 +91,12 @@ public class Json {
        Matcher m = p.matcher(json);
        return m.find() ? Double.parseDouble(m.group(1)) : null;
    }
+   
+   /**
+    * Returns true if this WhatsApp webhook payload contains a location share.
+    * Location messages have type "location" instead of type "text".
+    */
+   public static boolean isLocationMessage(String json) {
+       return json != null && json.contains("\"type\":\"location\"");
+   }
 }

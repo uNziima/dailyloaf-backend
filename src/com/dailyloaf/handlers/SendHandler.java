@@ -9,13 +9,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import com.dailyloaf.model.Customer;
+import com.dailyloaf.sheets.SheetsClient;
+
 
 public class SendHandler implements HttpHandler {
 
     private final WhatsAppClient whatsApp;
+    private final SheetsClient sheets;
+   
 
     public SendHandler(Config config) {
         this.whatsApp = new WhatsAppClient(config);
+        this.sheets   = new SheetsClient(config);
     }
 
     @Override
@@ -24,17 +30,16 @@ public class SendHandler implements HttpHandler {
             respond(exchange, 204, "");
             return;
         }
+
         if (!"POST".equals(exchange.getRequestMethod())) {
             respond(exchange, 405, "Method Not Allowed");
             return;
         }
 
-        String body = readBody(exchange);
+        String body    = readBody(exchange);
         String to      = Json.getString(body, "to");
         String message = Json.getString(body, "message");
-        
-        // TEMP DEBUG
-        System.out.println("[Send] body=" + body);
+
         System.out.println("[Send] to=" + to + " message=" + message);
 
         if (to == null || message == null) {
@@ -42,7 +47,23 @@ public class SendHandler implements HttpHandler {
             return;
         }
 
+        // Send the main message
         whatsApp.send(to, message);
+
+        // If this is a payment request for a new customer —
+        // follow up with a location request if no coordinates saved yet
+        if (message.contains("via PayShap") || message.contains("ready on delivery day")) {
+            Customer customer = sheets.findCustomerByWhatsApp(to);
+            if (customer != null) {
+                double[] saved = sheets.getSavedCoordinates(customer.getCustomerId());
+                if (saved == null) {
+                    // Small delay so messages don't arrive simultaneously
+                    try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                    whatsApp.sendLocationRequest(to, customer.getFirstName());
+                }
+            }
+        }
+
         respond(exchange, 200, "OK");
     }
 

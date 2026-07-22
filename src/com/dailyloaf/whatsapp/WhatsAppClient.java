@@ -191,4 +191,51 @@ public class WhatsAppClient {
             firstName
         ));
     }
+    
+    /**
+    * Sends a location request to the customer after payment confirmation.
+    * Uses WhatsApp Cloud API interactive message type "location_request_message".
+    * Customer sees a "Send Location" button — one tap shares their GPS coordinates.
+    */
+   public void sendLocationRequest(String to, String firstName) {
+       String url  = BASE_URL + config.getWhatsAppPhoneNumberId() + "/messages";
+       String body = """
+               {
+                 "messaging_product": "whatsapp",
+                 "to": "%s",
+                 "type": "interactive",
+                 "interactive": {
+                   "type": "location_request_message",
+                   "body": {
+                     "text": "Hi %s, please share your location so we can find your door on delivery day. Tap the button below — it only takes a second."
+                   },
+                   "action": {
+                     "name": "send_location"
+                   }
+                 }
+               }
+               """.formatted(to, Json.escape(firstName));
+
+       HttpRequest request = HttpRequest.newBuilder()
+           .uri(URI.create(url))
+           .header("Content-Type", "application/json")
+           .header("Authorization", "Bearer " + config.getWhatsAppToken())
+           .POST(HttpRequest.BodyPublishers.ofString(body))
+           .timeout(Duration.ofSeconds(TIMEOUT_S))
+           .build();
+
+       try {
+           HttpResponse<String> response = http.send(
+               request, HttpResponse.BodyHandlers.ofString()
+           );
+           if (response.statusCode() == 200) {
+               System.out.println("[WhatsApp] Location request sent to " + to);
+           } else {
+               System.err.println("[WhatsApp] Location request failed (" +
+                                  response.statusCode() + "): " + response.body());
+           }
+       } catch (IOException | InterruptedException e) {
+           System.err.println("[WhatsApp] Location request error: " + e.getMessage());
+       }
+   }
 }

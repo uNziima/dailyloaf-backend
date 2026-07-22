@@ -106,6 +106,12 @@ public class WebhookHandler implements HttpHandler {
 
         System.out.println("[Webhook] Returning customer: " + customer);
         
+        // Check if this is a location share from the customer
+            if (Json.isLocationMessage(json)) {
+                handleLocationShare(from, customer, json);
+                return;
+            }
+        
                 // Check if this customer has a pending order waiting for payment method
         if (pendingOrders.containsKey(from)) {
             handlePaymentMethodReply(from, customer, text);
@@ -359,5 +365,38 @@ public class WebhookHandler implements HttpHandler {
           pending.white + " white + " + pending.brown + " brown for " +
           pending.deliveryDay + ". " + paymentInstruction
       );
-  }
+      
+      // If customer has no saved location yet — request it now
+        double[] saved = sheets.getSavedCoordinates(customer.getCustomerId());
+        if (saved == null) {
+            whatsApp.sendLocationRequest(from, customer.getFirstName());
+        }
+    }
+    
+    /**
+    * Handles an incoming location share from a customer.
+    * Extracts GPS coordinates and saves them to the CUSTOMERS tab.
+    * Fires after customer shares their location via the location request button.
+    */
+   private void handleLocationShare(String from, Customer customer, String json) {
+       Double lat = Json.getDouble(json, "latitude");
+       Double lng = Json.getDouble(json, "longitude");
+
+       if (lat == null || lng == null) {
+           System.err.println("[Webhook] Location message but no coordinates found.");
+           return;
+       }
+
+       System.out.println("[Webhook] Location received from " + from +
+                          ": " + lat + ", " + lng);
+
+       // Save coordinates to CUSTOMERS tab
+       sheets.saveCoordinates(customer.getCustomerId(), lat, lng);
+
+       // Confirm to customer
+       whatsApp.send(from,
+           "Perfect, " + customer.getFirstName() + ". " +
+           "We've saved your location — we'll find your door on delivery day."
+       );
+   }
 }
