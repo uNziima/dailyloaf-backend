@@ -195,12 +195,15 @@ public class SheetsClient {
 
             String storedDate = cell(row, COL_O_DAY).trim();
             String status     = cell(row, COL_O_STATUS).trim();
+            String payment = cell(row, COL_O_PAYMENT).trim();
 
             // Match by exact date OR by day name (for backwards compatibility
             // with any orders created before this fix)
             boolean dateMatch = storedDate.equals(todayStr) ||
                                 storedDate.equalsIgnoreCase(deliveryDay);
-            boolean statusMatch = "PAID".equals(status);
+
+            boolean statusMatch = "PAID".equals(status) ||
+                ("PENDING_PAYMENT".equals(status) && "Cash".equals(payment));
 
             if (dateMatch && statusMatch) result.add(row);
         }

@@ -551,35 +551,6 @@ async function broadcastOnTheWay() {
   }
 }
 
-// ── Section Filter ────────────────────────────────────────
-function filterSection(section) {
-  activeFilter = section;
-
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.classList.toggle(
-      'active',
-      btn.textContent.trim() === section ||
-      (section === 'All' && btn.textContent.trim() === 'All')
-    );
-  });
-
-  stops.forEach(stop => {
-    const marker  = markers[stop.orderId];
-    if (!marker) return;
-    marker.setVisible(section === 'All' || stop.section === section);
-  });
-
-  // Close stop panel when filter changes
-  document.getElementById('stop-panel').classList.add('hidden');
-  if (currentStop) {
-    const prevState = currentStop.delivered    ? 'delivered'
-                    : currentStop.notDelivered ? 'not-delivered'
-                    : 'pending';
-    refreshMarker(currentStop.orderId, prevState);
-    currentStop = null;
-  }
-}
-
 // ── Share Route ───────────────────────────────────────────
 function shareRoute() {
   const url = window.location.href;

@@ -355,8 +355,10 @@ public class WebhookHandler implements HttpHandler {
           case "2", "cash on delivery", "cash", "cod" -> {
               paymentMethod      = "Cash";
               paymentInstruction =
-                  "Have R" + pending.amount + " ready on delivery day. " +
-                  "Your order is locked in.";
+                "Have R" + pending.amount + " ready on delivery day. " +
+                "Your order is locked in.\n\n" +
+                "If you'd like to pay before delivery, call us on " +
+                config.getBusinessPhoneNumber() + " and we'll arrange it.";
           }
           default -> {
               // Didn't understand — ask again
@@ -394,24 +396,44 @@ public class WebhookHandler implements HttpHandler {
     * Fires after customer shares their location via the location request button.
     */
    private void handleLocationShare(String from, Customer customer, String json) {
-       Double lat = Json.getDouble(json, "latitude");
-       Double lng = Json.getDouble(json, "longitude");
+        Double lat = null;
+        Double lng = null;
 
-       if (lat == null || lng == null) {
-           System.err.println("[Webhook] Location message but no coordinates found.");
-           return;
-       }
+        // Format 1 — standard location share (manual pin drop)
+        if (json.contains("\"type\":\"location\"")) {
+            lat = Json.getDouble(json, "latitude");
+            lng = Json.getDouble(json, "longitude");
+        }
 
-       System.out.println("[Webhook] Location received from " + from +
-                          ": " + lat + ", " + lng);
+        // Format 2 — interactive button reply from location_request_message
+        if ((lat == null || lng == null) &&
+            json.contains("\"name\":\"send_location\"")) {
 
-       // Save coordinates to CUSTOMERS tab
-       sheets.saveCoordinates(customer.getCustomerId(), lat, lng);
+            // Coordinates are inside response_json which is an escaped JSON string
+            String responseJson = Json.getString(json, "response_json");
+            if (responseJson != null) {
+                // Unescape the inner JSON string
+                responseJson = responseJson
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\");
+                lat = Json.getDouble(responseJson, "latitude");
+                lng = Json.getDouble(responseJson, "longitude");
+            }
+        }
 
-       // Confirm to customer
-       whatsApp.send(from,
-           "Perfect, " + customer.getFirstName() + ". " +
-           "We've saved your location — we'll find your door on delivery day."
-       );
-   }
+        if (lat == null || lng == null) {
+            System.err.println("[Webhook] Location message — no coordinates found.");
+            return;
+        }
+
+        System.out.println("[Webhook] Location received from " + from +
+                           ": " + lat + ", " + lng);
+
+        sheets.saveCoordinates(customer.getCustomerId(), lat, lng);
+
+        whatsApp.send(from,
+            "Perfect, " + customer.getFirstName() + ". " +
+            "We've saved your location — we'll find your door on delivery day."
+        );
+    }
 }
