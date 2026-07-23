@@ -1,5 +1,6 @@
 FROM eclipse-temurin:25-jdk
 
+# Daily Loaf backend — rebuild cache bust
 WORKDIR /app
 
 COPY src/ ./src/
