@@ -92,18 +92,7 @@ public class Json {
        return m.find() ? Double.parseDouble(m.group(1)) : null;
    }
    
-   /**
-    * Returns true if this WhatsApp webhook payload contains a location share.
-    * Location messages have type "location" instead of type "text".
-    */
-   public static boolean isLocationMessage(String json) {
-        if (json == null) return false;
-        // Standard location share
-        if (json.contains("\"type\":\"location\"")) return true;
-        // Interactive button tap reply from location_request_message
-        if (json.contains("\"name\":\"send_location\"")) return true;
-        return false;
-    }
+  
    
    /**
     * Extracts the sender's WhatsApp number from a webhook payload.

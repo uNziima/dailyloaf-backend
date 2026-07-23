@@ -50,14 +50,14 @@ public class SendHandler implements HttpHandler {
 
         // If this is a payment request for a new customer —
         // follow up with a location request if no coordinates saved yet
-        if (message.contains("via PayShap") || message.contains("ready on delivery day")) {
+        if (message.contains("via Card Payment") || message.contains("ready on delivery day")) {
             Customer customer = sheets.findCustomerByWhatsApp(to);
             if (customer != null) {
                 double[] saved = sheets.getSavedCoordinates(customer.getCustomerId());
                 if (saved == null) {
                     // Small delay so messages don't arrive simultaneously
                     try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-                    whatsApp.sendLocationRequest(to, customer.getFirstName());
+                    whatsApp.sendLocationInstruction(to, customer.getFirstName());
                 }
             }
         }

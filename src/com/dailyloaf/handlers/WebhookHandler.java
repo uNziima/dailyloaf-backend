@@ -61,7 +61,7 @@ public class WebhookHandler implements HttpHandler {
             System.out.println("[Webhook] Verified successfully.");
             respond(exchange, 200, challenge != null ? challenge : "");
         } else {
-            System.err.println("[Webhook] Verification failed — token mismatch.");
+            System.err.println("[Webhook] Verification failed - token mismatch.");
             respond(exchange, 403, "Forbidden");
         }
     }
@@ -86,22 +86,9 @@ public class WebhookHandler implements HttpHandler {
         String from = Json.getMessageSender(json);
         if (from == null) from = Json.getString(json, "from");
 
-        // Check for location share FIRST — location messages are not text messages
-        // so they would be skipped by the isTextMessage check below
-        if (Json.isLocationMessage(json)) {
-            if (from != null) {
-                Customer customer = sheets.findCustomerByWhatsApp(from);
-                if (customer != null) {
-                    handleLocationShare(from, customer, json);
-                } else {
-                    System.out.println("[Webhook] Location from unknown number: " + from);
-                }
-            }
-            return;
-        }
  
         if (!Json.isTextMessage(json)) {
-            System.out.println("[Webhook] Non-text webhook — skipping.");
+            System.out.println("[Webhook] Non-text webhook - skipping.");
             return;
         }
 
@@ -124,12 +111,6 @@ public class WebhookHandler implements HttpHandler {
 
         System.out.println("[Webhook] Returning customer: " + customer);
         
-        // Check if this is a location share from the customer
-            if (Json.isLocationMessage(json)) {
-                handleLocationShare(from, customer, json);
-                return;
-            }
-        
                 // Check if this customer has a pending order waiting for payment method
         if (pendingOrders.containsKey(from)) {
             handlePaymentMethodReply(from, customer, text);
@@ -142,7 +123,7 @@ public class WebhookHandler implements HttpHandler {
             whatsApp.send(from,
                 "Hey " + customer.getFirstName() + "! " +
                 "Ready to order? Just tell me what you need - " +
-                "e.g. '2 white friday' or 'same monday'."
+                "e.g. '2 white friday' or '3 white 1 brown monday'."
             );
             return;
         }
@@ -156,8 +137,8 @@ public class WebhookHandler implements HttpHandler {
             if (normalised.matches("hi|Hi|Hello|hello|hey|Ola|ola|Wola|wola||awe|Awe|heyy|hola|sawubona|howzit|good morning|morning|good evening|evening|good afternoon|afternoon")) {
                 whatsApp.send(from,
                     "Hey " + customer.getFirstName() + "! " +
-                    "Ready to order? Just tell me what you need - " +
-                    "e.g. '2 white friday' or 'same monday'."
+                    "Ready to order? Just tell me what you need, " +
+                    "e.g. '2 white friday' or '3 white 1 brown monday'."
                 );
                 return;
             }
@@ -175,7 +156,7 @@ public class WebhookHandler implements HttpHandler {
                 whatsApp.send(from,
                     "Hey " + customer.getFirstName() + ", check with us on " + config.getBusinessPhoneNumber() +
                   "if you need payment confirmation. " +
-                    "Once we see your PayShap we'll confirm immediately."
+                    "Once we see your payment we'll confirm immediately."
                 );
                 return;
             }
@@ -205,7 +186,7 @@ public class WebhookHandler implements HttpHandler {
                                  ParsedOrder parsed) {
         whatsApp.send(from,
             "Got it, " + customer.getFirstName() + "! " +
-            "What day - Monday, Wednesday, or Friday?"
+            "What day : Monday, Wednesday, or Friday?"
         );
     }
 
@@ -247,7 +228,7 @@ public class WebhookHandler implements HttpHandler {
                     parsed.deliveryDay,
                     parsed.whiteLoaves,
                     parsed.brownLoaves,
-                    "PayShap",
+                    "Card Payment",
                     OrderStatus.PENDING_PAYMENT,
                     source
                 );
@@ -270,12 +251,12 @@ public class WebhookHandler implements HttpHandler {
 
                 // Ask for payment method
                 whatsApp.send(from,
-                    "Got it, " + customer.getFirstName() + " — " +
+                    "Got it, " + customer.getFirstName() +
                     parsed.whiteLoaves + " white + " + parsed.brownLoaves +
                     " brown for " + parsed.deliveryDay + " = R" + amount + ".\n\n" +
                     "How are you paying?\n" +
-                    "*1* - PayShap\n" +
-                    "*2* - Cash on delivery"
+                    "*1* - Card Payment\n" +
+                    "*2* - Cash Payment"
                 );
             }
 
@@ -338,94 +319,67 @@ public class WebhookHandler implements HttpHandler {
     }
     
     private void handlePaymentMethodReply(String from, Customer customer,
-                                        String text) {
-      PendingOrder pending = pendingOrders.get(from);
-      if (pending == null) return;
+                                            String text) {
+          PendingOrder pending = pendingOrders.get(from);
+          if (pending == null) return;
 
-      String reply = text.trim().toLowerCase();
+          String reply = text.trim().toLowerCase();
 
-      String paymentMethod;
-      String paymentInstruction;
+          String paymentMethod;
+          String paymentInstruction;
 
-      switch (reply) {
-          case "1", "payshap", "pay shap", "eft" -> {
-              paymentMethod      = "PayShap";
-              paymentInstruction =
-                  "Send R" + pending.amount + " to [Capitec number] via PayShap. " +
-                  "Use *" + pending.orderId + "* as your reference. " +
-                  "Once we see it you're confirmed.";
+          switch (reply) {
+              case "1", "Card", "Card Payment", "eft" -> {
+                  paymentMethod      = "Card Payment";
+                  paymentInstruction =
+                      "Send R" + pending.amount + " to Capitec Account Number : 1055617264. " +
+                      "Use *" + pending.orderId + "* as your reference. " +
+                      "Once we see it you're confirmed.";
+              }
+              case "2", "Cash Payment", "Cash", "CP" -> {
+                  paymentMethod      = "Cash Payment";
+                  paymentInstruction =
+                    "Have R" + pending.amount + " ready on delivery day. " +
+                    "Your order is locked in.\n\n" +
+                    "If you'd like to pay before delivery, call us on " +
+                    config.getBusinessPhoneNumber() + " and we'll arrange it.";
+              }
+              default -> {
+                  // Didn't understand — ask again
+                  whatsApp.send(from,
+                      "Please reply *1* for Card Payment or *2* for Cash Payment."
+                  );
+                  return;
+              }
           }
-          case "2", "cash on delivery", "cash", "cod" -> {
-              paymentMethod      = "Cash";
-              paymentInstruction =
-                "Have R" + pending.amount + " ready on delivery day. " +
-                "Your order is locked in.\n\n" +
-                "If you'd like to pay before delivery, call us on " +
-                config.getBusinessPhoneNumber() + " and we'll arrange it.";
-          }
-          default -> {
-              // Didn't understand — ask again
-              whatsApp.send(from,
-                  "Please reply *1* for PayShap or *2* for Cash on delivery."
-              );
-              return;
-          }
-      }
 
-      // Remove from pending — payment method confirmed
-      pendingOrders.remove(from);
+          // Remove from pending — payment method confirmed
+          pendingOrders.remove(from);
 
-      // Update order payment method in Sheet
-      sheets.updateOrderPaymentMethod(pending.orderId, paymentMethod);
+          // Update order payment method in Sheet
+          sheets.updateOrderPaymentMethod(pending.orderId, paymentMethod);
 
-      // Send confirmation
-      whatsApp.send(from,
-          "Confirmed, " + customer.getFirstName() + ". " +
-          "Your order *" + pending.orderId + "* — " +
-          pending.white + " white + " + pending.brown + " brown for " +
-          pending.deliveryDay + ". " + paymentInstruction
-      );
-      
-      // If customer has no saved location yet — request it now
-        double[] saved = sheets.getSavedCoordinates(customer.getCustomerId());
-        if (saved == null) {
-            whatsApp.sendLocationRequest(from, customer.getFirstName());
-        }
-    }
-    
-    /**
-    * Handles an incoming location share from a customer.
-    * Extracts GPS coordinates and saves them to the CUSTOMERS tab.
-    * Fires after customer shares their location via the location request button.
-    */
-   private void handleLocationShare(String from, Customer customer, String json) {
-        Double lat = null;
-        Double lng = null;
+          // Send confirmation
+          whatsApp.send(from,
+              "Confirmed, " + customer.getFirstName() + ". " +
+              "Your order *" + pending.orderId + "* — " +
+              pending.white + " white + " + pending.brown + " brown for " +
+              pending.deliveryDay + ". " + paymentInstruction
+          );
 
-        // Format 1 — standard location share (manual pin drop)
-        if (json.contains("\"type\":\"location\"")) {
-            lat = Json.getDouble(json, "latitude");
-            lng = Json.getDouble(json, "longitude");
-        }
-
-        // Format 2 — interactive button reply from location_request_message
-        if ((lat == null || lng == null) &&
-            json.contains("\"name\":\"send_location\"")) {
-
-            // Coordinates are inside response_json which is an escaped JSON string
-            String responseJson = Json.getString(json, "response_json");
-            if (responseJson != null) {
-                // Unescape the inner JSON string
-                responseJson = responseJson
-                    .replace("\\\"", "\"")
-                    .replace("\\\\", "\\");
-                lat = Json.getDouble(responseJson, "latitude");
-                lng = Json.getDouble(responseJson, "longitude");
+          // If customer has no saved location yet — request it now
+            double[] saved = sheets.getSavedCoordinates(customer.getCustomerId());
+            if (saved == null) {
+                whatsApp.sendLocationInstruction(from, customer.getFirstName());
             }
         }
 
+        private void handleLocationShare(String from, Customer customer, String json) {
+        Double lat = Json.getDouble(json, "latitude");
+        Double lng = Json.getDouble(json, "longitude");
+
         if (lat == null || lng == null) {
-            System.err.println("[Webhook] Location message — no coordinates found.");
+            System.err.println("[Webhook] Location message, no coordinates found.");
             return;
         }
 
@@ -436,7 +390,7 @@ public class WebhookHandler implements HttpHandler {
 
         whatsApp.send(from,
             "Perfect, " + customer.getFirstName() + ". " +
-            "We've saved your location — we'll find your door on delivery day."
+            "We've saved your location, we'll find your door on delivery day."
         );
     }
 }
