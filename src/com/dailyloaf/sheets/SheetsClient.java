@@ -203,7 +203,9 @@ public class SheetsClient {
                                 storedDate.equalsIgnoreCase(deliveryDay);
 
             boolean statusMatch = "PAID".equals(status) ||
-                ("PENDING_PAYMENT".equals(status) && "Cash".equals(payment));
+            ("PENDING_PAYMENT".equals(status) &&
+                (payment.equalsIgnoreCase("Cash") ||
+                 payment.equalsIgnoreCase("Cash Payment")));
 
             if (dateMatch && statusMatch) result.add(row);
         }

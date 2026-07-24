@@ -239,7 +239,7 @@ public class WebhookHandler implements HttpHandler {
                     parsed.deliveryDay,
                     parsed.whiteLoaves,
                     parsed.brownLoaves,
-                    "PayShap",
+                    "Pending",
                     OrderStatus.PENDING_PAYMENT,
                     source
                 );
@@ -343,7 +343,7 @@ public class WebhookHandler implements HttpHandler {
               case "1", "Card", "Card Payment", "eft" -> {
                   paymentMethod      = "Card Payment";
                   paymentInstruction =
-                      "Send R" + pending.amount + " to Capitec Account Number : 1055617264. " +
+                      "Send R" + pending.amount + " to Capitec Account: " + config.getCapitecNumber() + ". " +
                       "Use *" + pending.orderId + "* as your reference. " +
                       "Once we see it you're confirmed.";
               }

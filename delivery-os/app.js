@@ -169,48 +169,6 @@ async function loadDeliveries() {
   }
 }
 
-// ── Plot All Stops on the Map ─────────────────────────────
-async function plotStops() {
-  // Geocode every address — builds geocodedStops[] in parallel order
-  const addresses = stops.map(s =>
-    `${s.houseNumber} ${s.section}, Madadeni, KwaZulu-Natal, South Africa`
-  );
-
-  // Place a numbered marker for each stop
-  stops.forEach((stop, i) => {
-    const position = geocodedStops[i];
-    if (!position) return;
-
-    const marker = buildMarker(i + 1, position, stop, 'pending');
-    markers[stop.orderId] = marker;
-    marker.addListener('click', () => selectStop(i));
-  });
-
-  fitMapToMarkers();
-  drawRoute();
-}
-
-// Approximate centres for each section in Madadeni.
-// Used as fallback when a house number can't be geocoded.
-function sectionCentre(address) {
-  const centres = {
-    'Ikwezi':    { lat: -27.7820, lng: 29.9480 },
-    'Section 1': { lat: -27.7800, lng: 29.9460 },
-    'Section 2': { lat: -27.7780, lng: 29.9500 },
-    'Section 3': { lat: -27.7760, lng: 29.9520 },
-    'Section 4': { lat: -27.7740, lng: 29.9540 },
-    'Section 5': { lat: -27.7720, lng: 29.9560 },
-    'Section 6': { lat: -27.7700, lng: 29.9580 },
-    'Section 7': { lat: -27.7680, lng: 29.9600 },
-  };
-  for (const [section, centre] of Object.entries(centres)) {
-    if (address.includes(section)) {
-      return new google.maps.LatLng(centre.lat, centre.lng);
-    }
-  }
-  return new google.maps.LatLng(-27.7833, 29.9500);
-}
-
 // ── Custom SVG Markers ────────────────────────────────────
 // Each marker is a numbered teardrop pin drawn as inline SVG.
 // Colour reflects the delivery state.
@@ -374,13 +332,14 @@ function selectStop(index) {
 
   document.getElementById('stop-panel').classList.remove('hidden');
   
-  // Show payment button for pending cash orders
-    const payContainer = document.getElementById('pay-container');
-    if (stop.status === 'PENDING_PAYMENT' || !stop.status) {
-        payContainer.classList.remove('hidden');
-    } else {
+  const payContainer = document.getElementById('pay-container');
+  const isCashOrder  = stop.paymentMethod === 'Cash Payment' ||
+                        stop.paymentMethod === 'Cash';
+   if (!isCashOrder && (stop.status === 'PENDING_PAYMENT' || !stop.status)) {
+       payContainer.classList.remove('hidden');
+   } else {
         payContainer.classList.add('hidden');
-    }
+  }
 }
 
 // ── Action: We're Outside ─────────────────────────────────
@@ -697,9 +656,4 @@ function getSectionCentre(section) {
     return centre
         ? new google.maps.LatLng(centre.lat, centre.lng)
         : new google.maps.LatLng(-27.7833, 29.9500);
-}
-
-// ── Utility ───────────────────────────────────────────────
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }

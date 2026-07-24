@@ -70,7 +70,7 @@ public class WhatsAppClient {
                                     String orderId) {
          send(to, String.format(
              "Hi %s Your order: %d white + %d brown = %d loaves. " +
-             "Total: R%d. Send to Capitec Account Number : 1055617264. " +
+             "Total: R%d. Send to " + config.getCapitecNumber() +
              "Use *%s* as your payment reference. " +
              "Once we see it, you're confirmed.",
              firstName, white, brown, total, amount, orderId

@@ -52,6 +52,8 @@ public class Config {
             mapEnv(props, "delivery.os.key",      "DELIVERY_OS_KEY");
             mapEnv(props, "google.maps.api.key",  "GOOGLE_MAPS_API_KEY");
             mapEnv(props, "business.phone_number","BUSINESS_PHONE_NUMBER");
+            mapEnv(props, "business.capitec_number", "BUSINESS_CAPITEC_NUMBER");
+            
         }
 
         Config config = new Config(props);
@@ -131,15 +133,19 @@ public class Config {
         return get("google.maps.api.key");
     }
     
+    public String getCapitecNumber() {
+        return get("business.capitec_number", "1055617264");
+    }
+    
     private static void mapEnv(Properties props, String propKey, String envKey) {
-        String value = System.getenv(envKey);
-        if (value != null && !value.isBlank()) {
-            props.setProperty(propKey, value);
-            System.out.println("[Config] Loaded " + propKey + " from " + envKey);
-        } else {
-            System.out.println("[Config] WARNING: " + envKey + " not found in environment");
-        }
-}
+            String value = System.getenv(envKey);
+            if (value != null && !value.isBlank()) {
+                props.setProperty(propKey, value);
+                System.out.println("[Config] Loaded " + propKey + " from " + envKey);
+            } else {
+                System.out.println("[Config] WARNING: " + envKey + " not found in environment");
+            }
+    }
 }
 
 
