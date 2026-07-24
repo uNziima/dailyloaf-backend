@@ -15,6 +15,7 @@ import com.dailyloaf.handlers.DeliverHandler;
 import com.dailyloaf.handlers.NotDeliveredHandler;
 import com.dailyloaf.handlers.ConfigHandler;
 import com.dailyloaf.server.StaticFileHandler;
+import com.dailyloaf.handlers.PaymentHandler;
 
 public class DailyLoafServer {
 
@@ -29,6 +30,7 @@ public class DailyLoafServer {
             new InetSocketAddress(config.getPort()), 0
         );
 
+        server.createContext("/pay", new PaymentHandler(config));
         server.createContext("/webhook", new WebhookHandler(config));
         server.createContext("/health",  this::handleHealth);
         server.createContext("/send", new SendHandler(config));

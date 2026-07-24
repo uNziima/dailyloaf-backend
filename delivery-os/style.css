@@ -397,6 +397,14 @@ html, body {
   text-align: center;
 }
 
+.pay-btn {
+    background: #155724;
+    color: white;
+    width: 100%;
+    margin: 0 14px 8px;
+    box-sizing: border-box;
+}
+
 /* ── No Orders ───────────────────────────────────────────── */
 #no-orders {
   position: absolute;

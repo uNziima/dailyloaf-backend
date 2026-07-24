@@ -81,12 +81,23 @@ public class WebhookHandler implements HttpHandler {
     }
 
     private void processMessage(String json) {
-        // Use getMessageSender to ensure we get the customer's number,
-        // not the business number from the context field in interactive replies
         String from = Json.getMessageSender(json);
         if (from == null) from = Json.getString(json, "from");
 
- 
+        // CHECK LOCATION FIRST — before isTextMessage filter
+        if (Json.isLocationMessage(json)) {
+            if (from != null) {
+                Customer customer = sheets.findCustomerByWhatsApp(from);
+                if (customer != null) {
+                    handleLocationShare(from, customer, json);
+                } else {
+                    System.out.println("[Webhook] Location from unknown number: " + from);
+                }
+            }
+            return;
+        }
+
+        // Now filter non-text messages
         if (!Json.isTextMessage(json)) {
             System.out.println("[Webhook] Non-text webhook - skipping.");
             return;
@@ -228,7 +239,7 @@ public class WebhookHandler implements HttpHandler {
                     parsed.deliveryDay,
                     parsed.whiteLoaves,
                     parsed.brownLoaves,
-                    "Card Payment",
+                    "PayShap",
                     OrderStatus.PENDING_PAYMENT,
                     source
                 );

@@ -50,7 +50,8 @@ public class SendHandler implements HttpHandler {
 
         // If this is a payment request for a new customer —
         // follow up with a location request if no coordinates saved yet
-        if (message.contains("via Card Payment") || message.contains("ready on delivery day")) {
+        // Matches both PayShap and cash payment messages
+        if (message.contains("payment reference") || message.contains("ready on delivery day")) {
             Customer customer = sheets.findCustomerByWhatsApp(to);
             if (customer != null) {
                 double[] saved = sheets.getSavedCoordinates(customer.getCustomerId());

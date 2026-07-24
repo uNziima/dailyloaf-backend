@@ -119,4 +119,12 @@ public class Json {
        if (quoteOpen <= 0 || quoteClose <= 0) return null;
        return json.substring(quoteOpen, quoteClose);
    }
+   
+   /**
+    * Returns true if this WhatsApp webhook payload contains a location share.
+    */
+   public static boolean isLocationMessage(String json) {
+       if (json == null) return false;
+       return json.contains("\"type\":\"location\"");
+   }
 }

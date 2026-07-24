@@ -373,6 +373,14 @@ function selectStop(index) {
   });
 
   document.getElementById('stop-panel').classList.remove('hidden');
+  
+  // Show payment button for pending cash orders
+    const payContainer = document.getElementById('pay-container');
+    if (stop.status === 'PENDING_PAYMENT' || !stop.status) {
+        payContainer.classList.remove('hidden');
+    } else {
+        payContainer.classList.add('hidden');
+    }
 }
 
 // ── Action: We're Outside ─────────────────────────────────
@@ -632,6 +640,44 @@ async function plotStops() {
 
     fitMapToMarkers();
     drawRoute();
+}
+
+async function confirmPayment() {
+    if (!currentStop) return;
+
+    const btn = document.querySelector('.pay-btn');
+    btn.textContent = 'Confirming...';
+    btn.disabled    = true;
+
+    try {
+        const res = await fetch(`${BACKEND}/pay`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orderId:    currentStop.orderId,
+                customerId: currentStop.customerId,
+                firstName:  currentStop.firstName,
+                whatsapp:   currentStop.whatsapp,
+                deliveryDay: currentStop.deliveryDay
+            })
+        });
+
+        if (res.ok) {
+            currentStop.paid = true;
+            document.getElementById('pay-container')
+                    .classList.add('hidden');
+            showToast(`✓ Payment confirmed for ${currentStop.firstName}`);
+        } else {
+            btn.textContent = '✓ Payment Received';
+            btn.disabled    = false;
+            showToast('Failed — try again');
+        }
+
+    } catch (err) {
+        btn.textContent = '✓ Payment Received';
+        btn.disabled    = false;
+        showToast('Network error — try again');
+    }
 }
 
 function getSectionCentre(section) {
