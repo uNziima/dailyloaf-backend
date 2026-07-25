@@ -203,9 +203,8 @@ public class SheetsClient {
                                 storedDate.equalsIgnoreCase(deliveryDay);
 
             boolean statusMatch = "PAID".equals(status) ||
-            ("PENDING_PAYMENT".equals(status) &&
-                (payment.equalsIgnoreCase("Cash") ||
-                 payment.equalsIgnoreCase("Cash Payment")));
+                ("PENDING_PAYMENT".equals(status) &&
+                    isCashPayment(payment));
 
             if (dateMatch && statusMatch) result.add(row);
         }
@@ -662,4 +661,9 @@ private List<String> parseRow(String rowStr) {
            }
        }
    }
+   
+   private boolean isCashPayment(String payment) {
+        if (payment == null) return false;
+        return payment.toLowerCase().contains("cash");
+    }
 }

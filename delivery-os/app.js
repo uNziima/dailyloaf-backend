@@ -46,6 +46,13 @@ deliveryDay = dayOverride || getTodayDeliveryDay();
   await loadGoogleMaps();
 });
 
+// ── Payment type helper ───────────────────────────────────
+// Handles all variations: "Cash", "Cash on delivery", "Cash Payment"
+function isCash(paymentMethod) {
+    if (!paymentMethod) return false;
+    return paymentMethod.toLowerCase().includes('cash');
+}
+
 // ── Access Denied ─────────────────────────────────────────
 function showAccessDenied() {
   document.getElementById('access-denied').classList.remove('hidden');
@@ -308,8 +315,8 @@ function selectStop(index) {
 
   // ── Cash button ──────────────────────────────────────
   const cashContainer = document.getElementById('cash-container');
-  if (stop.paymentMethod === 'Cash') {
-    cashContainer.classList.remove('hidden');
+    if (isCash(stop.paymentMethod)) {
+        cashContainer.classList.remove('hidden');
     const cashBtn = document.getElementById('cash-btn');
     if (cashCollected[stop.orderId]) {
       cashBtn.classList.add('collected');
@@ -333,12 +340,11 @@ function selectStop(index) {
   document.getElementById('stop-panel').classList.remove('hidden');
   
   const payContainer = document.getElementById('pay-container');
-  const isCashOrder  = stop.paymentMethod === 'Cash Payment' ||
-                        stop.paymentMethod === 'Cash';
-   if (!isCashOrder && (stop.status === 'PENDING_PAYMENT' || !stop.status)) {
-       payContainer.classList.remove('hidden');
-   } else {
-        payContainer.classList.add('hidden');
+    if (!isCash(stop.paymentMethod) &&
+      (stop.status === 'PENDING_PAYMENT' || !stop.status)) {
+      payContainer.classList.remove('hidden');
+  } else {
+      payContainer.classList.add('hidden');
   }
 }
 

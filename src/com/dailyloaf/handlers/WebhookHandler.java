@@ -262,7 +262,7 @@ public class WebhookHandler implements HttpHandler {
 
                 // Ask for payment method
                 whatsApp.send(from,
-                    "Got it, " + customer.getFirstName() +
+                    "Got it, " + customer.getFirstName() + " " +
                     parsed.whiteLoaves + " white + " + parsed.brownLoaves +
                     " brown for " + parsed.deliveryDay + " = R" + amount + ".\n\n" +
                     "How are you paying?\n" +

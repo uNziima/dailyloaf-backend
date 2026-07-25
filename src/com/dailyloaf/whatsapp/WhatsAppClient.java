@@ -157,7 +157,7 @@ public class WhatsAppClient {
         send(to,
             """
             Hi! Welcome to Daily Loaf
-            We deliver fresh Albany bread to your door in Ikhwezi, Section 01 & Section 02 every Mon, Wed & Fri morning.
+            We deliver fresh bread to your door in Ikhwezi, Section 01 & Section 02 every Mon, Wed & Fri morning.
             
             Fill in this quick form to place your first order:
             """ +
