@@ -48,6 +48,11 @@ public class WebhookHandler implements HttpHandler {
             default     -> respond(exchange, 405, "Method Not Allowed");
         }
     }
+    
+    // Tracks customers who have sent "please call me" and are
+    // waiting to send their callback number
+    private final Map<String, Boolean> awaitingCallback =
+        new ConcurrentHashMap<>();
 
     private void handleVerification(HttpExchange exchange) throws IOException {
         Map<String, String> params = queryParams(exchange.getRequestURI());
@@ -96,7 +101,7 @@ public class WebhookHandler implements HttpHandler {
             }
             return;
         }
-
+        
         // Now filter non-text messages
         if (!Json.isTextMessage(json)) {
             System.out.println("[Webhook] Non-text webhook - skipping.");
@@ -121,6 +126,29 @@ public class WebhookHandler implements HttpHandler {
         }
 
         System.out.println("[Webhook] Returning customer: " + customer);
+        
+                // ── Order lookup ──────────────────────────────────────────
+        // Detects 7-digit reference numbers like "2026006"
+        if (MessageParser.isOrderLookup(text)) {
+            handleOrderLookup(from, customer, text);
+            return;
+        }
+
+        // ── Call request ──────────────────────────────────────────
+        // Detects "please call me" or "please call"
+        if (MessageParser.isCallRequest(text)) {
+            handleCallRequest(from, customer);
+            return;
+        }
+
+        // ── Awaiting callback number ──────────────────────────────
+        // Customer previously sent "please call me" and we asked
+        // for their number — this is their response
+        if (awaitingCallback.containsKey(from)) {
+            handleCallbackNumber(from, customer, text);
+            return;
+        }
+
         
                 // Check if this customer has a pending order waiting for payment method
         if (pendingOrders.containsKey(from)) {
@@ -404,4 +432,196 @@ public class WebhookHandler implements HttpHandler {
             "We've saved your location, we'll find your door on delivery day."
         );
     }
+        
+    /**
+    * Handles order lookup when customer sends their 7-digit reference.
+    * Converts "2026006" → "ORD-2026-006" and returns full order summary.
+    * If customer has never paid before, adds security notice and location request.
+    */
+   private void handleOrderLookup(String from, Customer customer, String text) {
+       String orderId = MessageParser.toOrderId(text.trim());
+       if (orderId == null) return;
+
+       System.out.println("[Webhook] Order lookup: " + orderId +
+                          " by " + customer.getCustomerId());
+
+       Map<String, String> order = sheets.getOrderById(orderId);
+
+       if (order == null) {
+           // Order not found — let customer know
+           whatsApp.send(from,
+               "Hi " + customer.getFirstName() + ", we couldn't find " +
+               "order *" + orderId + "*. " +
+               "Please check the reference number and try again."
+           );
+           return;
+       }
+
+       // Security check — verify this order belongs to this customer
+       if (!customer.getCustomerId().trim()
+                    .equals(order.get("customerId").trim())) {
+           whatsApp.send(from,
+               "Sorry " + customer.getFirstName() + ", that order " +
+               "doesn't match your account. " +
+               "Please check the reference number."
+           );
+           return;
+       }
+
+       // Send the order summary with payment details
+       whatsApp.sendOrderSummary(from, customer.getFirstName(),
+           order, config.getCapitecNumber());
+
+       // Check if this is a first-time customer who has never paid
+       boolean hasPaidBefore = sheets.hasEverPaidOrder(
+           customer.getCustomerId()
+       );
+
+       if (!hasPaidBefore) {
+           // Pause so messages don't arrive simultaneously
+           try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+
+           // Send first-time security notice
+           whatsApp.sendFirstTimeSecurityNotice(from, customer.getFirstName());
+
+           // Follow with location request if no coordinates saved yet
+           try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+
+           double[] saved = sheets.getSavedCoordinates(
+               customer.getCustomerId()
+           );
+           if (saved == null) {
+               whatsApp.sendLocationInstruction(from, customer.getFirstName());
+           }
+       }
+   }
+
+   /**
+    * Handles "please call me" from a customer.
+    * Marks the customer as awaiting their callback number
+    * and asks them to send it.
+    */
+   private void handleCallRequest(String from, Customer customer) {
+       System.out.println("[Webhook] Call request from: " + customer.getFullName());
+
+       // Flag this number as awaiting a callback number response
+       awaitingCallback.put(from, true);
+
+       whatsApp.send(from,
+           "Of course, " + customer.getFirstName() + ". " +
+           "Please type and send your cellphone number " +
+           "and we'll call you back shortly."
+       );
+   }
+
+   /**
+    * Handles the phone number sent after a call request.
+    * Validates the format, confirms to the customer,
+    * and alerts both Nziima and Ntobeko.
+    */
+   private void handleCallbackNumber(String from, Customer customer,
+                                      String text) {
+       String raw        = text.trim();
+       String errorMsg   = validateCallbackNumber(raw);
+
+       if (errorMsg != null) {
+           // Validation failed — explain exactly what's wrong
+           // Customer stays in awaitingCallback state so they can try again
+           whatsApp.send(from, errorMsg);
+           return;
+       }
+
+       // Valid number — remove from awaiting state
+       awaitingCallback.remove(from);
+
+       // Build display-friendly number
+       String cleaned = raw.replaceAll("[\\s\\-]", "");
+       String display = cleaned.startsWith("+") ? cleaned :
+                        cleaned.startsWith("27") ? "+" + cleaned :
+                        "+27" + cleaned.substring(1);
+
+       // Confirm to customer
+       whatsApp.sendCallbackConfirmation(from, customer.getFirstName(), display);
+
+       // Alert both founders
+       String nziimaNumber  = config.getNziimaWhatsApp();
+       String ntobekoNumber = config.getNtobekoWhatsApp();
+
+       if (nziimaNumber != null && !nziimaNumber.isBlank()) {
+           whatsApp.sendCallbackAlert(
+               nziimaNumber,
+               customer.getFullName(),
+               display,
+               from
+           );
+       }
+
+       if (ntobekoNumber != null && !ntobekoNumber.isBlank()) {
+           whatsApp.sendCallbackAlert(
+               ntobekoNumber,
+               customer.getFullName(),
+               display,
+               from
+           );
+       }
+
+       System.out.println("[Webhook] Callback alert sent for: " +
+                          customer.getFullName() + " → " + display);
+   }
+
+   /**
+    * Validates a South African phone number sent as a callback request.
+    *
+    * Rules:
+    *   Starting with 0    → must be exactly 10 digits total
+    *   Starting with 27   → must be exactly 11 digits total
+    *   Starting with +27  → must be exactly 12 characters total (+27 + 9 digits)
+    *   Anything else      → rejected with explanation
+    *
+    * Returns null if valid.
+    * Returns an error message string if invalid.
+    */
+   private String validateCallbackNumber(String raw) {
+       if (raw == null || raw.isBlank()) {
+           return "Please send your cellphone number so we can call you back.";
+       }
+
+       // Remove spaces and dashes before validating
+       String cleaned = raw.replaceAll("[\\s\\-]", "");
+
+       if (cleaned.startsWith("+27")) {
+           // +27 followed by 9 digits = 12 chars total
+           if (cleaned.length() != 12) {
+               return "The number starting with +27 should have exactly " +
+                      "9 digits after +27 — 12 characters total. " +
+                      "Example: *+27821234567*. Please try again.";
+           }
+           return null; // valid
+       }
+
+       if (cleaned.startsWith("27")) {
+           // 27 followed by 9 digits = 11 digits total
+           if (cleaned.length() != 11) {
+               return "The number starting with 27 should be exactly " +
+                      "11 digits total. " +
+                      "Example: *27821234567*. Please try again.";
+           }
+           return null; // valid
+       }
+
+       if (cleaned.startsWith("0")) {
+           // 0 followed by 9 digits = 10 digits total
+           if (cleaned.length() != 10) {
+               return "The number starting with 0 should be exactly " +
+                      "10 digits total. " +
+                      "Example: *0821234567*. Please try again.";
+           }
+           return null; // valid
+       }
+
+       // Doesn't match any known South African format
+       return "That doesn't look like a valid South African number. " +
+              "Please start with *0*, *27*, or *+27*. " +
+              "Example: *0821234567*.";
+   }
 }

@@ -8,6 +8,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 
 public class WhatsAppClient {
 
@@ -110,11 +111,18 @@ public class WhatsAppClient {
         ));
     }
 
+      /**
+    * Sends the "please call me" hint to the customer.
+    * Appended to the post-delivery message so every customer
+    * knows this option exists after their first delivery.
+    * Not a separate message — part of the delivery confirmation.
+    */
     public void sendPostDelivery(String to, String firstName) {
         send(to, String.format(
             "Hope the bread is fresh, %s. " +
-            "If your neighbour wants this, send them our way.",
-            firstName
+           "If your neighbour wants this, send them our way.\n\n" +
+           "💡 Need help? Just type and send us *please call me* anytime.",
+           firstName
         ));
     }
 
@@ -206,4 +214,92 @@ public class WhatsAppClient {
             firstName
         ));
     }
+   
+   /**
+    * Sends a full order summary when a customer looks up their order
+    * by sending the 7-digit reference number.
+    * Includes payment instructions and both payment options.
+    */
+   public void sendOrderSummary(String to, String firstName,
+                                 Map<String, String> order,
+                                 String capitecNumber) {
+       String orderId      = order.get("orderId");
+       String white        = order.get("whiteLoaves");
+       String brown        = order.get("brownLoaves");
+       String amount       = order.get("amount");
+       String payment      = order.get("paymentMethod");
+       String deliveryDate = order.get("deliveryDate");
+       String status       = order.get("status");
+
+       // Human-readable status text
+       String statusText = switch (status != null ? status : "") {
+           case "PENDING_PAYMENT" -> "Awaiting payment";
+           case "PAID"            -> "Payment confirmed ✓";
+           case "DELIVERED"       -> "Delivered ✓";
+           case "CANCELLED"       -> "Cancelled";
+           default                -> status != null ? status : "Unknown";
+       };
+
+       send(to, String.format(
+           "Hi %s, here's your order summary:\n\n" +
+           "*Order:* %s\n" +
+           "*Loaves:* %s white + %s brown\n" +
+           "*Delivery:* %s\n" +
+           "*Amount:* R%s\n" +
+           "*Payment:* %s\n" +
+           "*Status:* %s\n\n" +
+           "To pay via Card/PayShap: send R%s to Capitec Account *%s*, " +
+           "use *%s* as your reference.\n" +
+           "To pay cash on delivery: reply *CASH* to arrange.",
+           firstName, orderId, white, brown,
+           deliveryDate, amount, payment, statusText,
+           amount, capitecNumber, orderId
+       ));
+   }
+
+   /**
+    * Sends the first-time customer security notice.
+    * Only fires when a customer has never successfully paid before.
+    * Explains why upfront payment is required for new customers.
+    */
+   public void sendFirstTimeSecurityNotice(String to, String firstName) {
+       send(to, String.format(
+           "📋 *Payment Notice*\n\n" +
+           "Hi %s, for new customers we require payment before delivery. " +
+           "This protects both parties and ensures your bread is ready on " +
+           "delivery day.\n\n" +
+           "Once your first payment is confirmed, future orders can be " +
+           "paid on delivery if you prefer.",
+           firstName
+       ));
+   }
+
+   /**
+    * Confirms to the customer that we received their callback request
+    * and will call them back on the number they provided.
+    */
+   public void sendCallbackConfirmation(String to, String firstName,
+                                        String callbackNumber) {
+       send(to, String.format(
+           "Got it, %s. We'll call you shortly on *%s*. " +
+           "Please keep your phone nearby.",
+           firstName, callbackNumber
+       ));
+   }
+
+   /**
+    * Sends a callback alert to a founder (Nziima or Ntobeko).
+    * Both founders receive this notification so either can call the customer.
+    */
+   public void sendCallbackAlert(String founderNumber, String customerName,
+                                  String callbackNumber, String customerWhatsApp) {
+       send(founderNumber, String.format(
+           "📞 *CALLBACK REQUIRED*\n\n" +
+           "Customer: *%s*\n" +
+           "Call them on: *%s*\n" +
+           "Their WhatsApp: %s\n\n" +
+           "Please call as soon as possible.",
+           customerName, callbackNumber, customerWhatsApp
+       ));
+   }
 }

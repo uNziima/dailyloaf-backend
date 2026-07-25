@@ -53,6 +53,8 @@ public class Config {
             mapEnv(props, "google.maps.api.key",  "GOOGLE_MAPS_API_KEY");
             mapEnv(props, "business.phone_number","BUSINESS_PHONE_NUMBER");
             mapEnv(props, "business.capitec_number", "BUSINESS_CAPITEC_NUMBER");
+            mapEnv(props, "nziima.whatsapp",         "NZIIMA_WHATSAPP");
+            mapEnv(props, "ntobeko.whatsapp",         "NTOBEKO_WHATSAPP");
             
         }
 
@@ -135,6 +137,14 @@ public class Config {
     
     public String getCapitecNumber() {
         return get("business.capitec_number", "1055617264");
+    }
+    
+    public String getNziimaWhatsApp() {
+        return get("nziima.whatsapp");
+    }
+
+    public String getNtobekoWhatsApp() {
+        return get("ntobeko.whatsapp");
     }
     
     private static void mapEnv(Properties props, String propKey, String envKey) {

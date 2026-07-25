@@ -19,6 +19,17 @@ public class MessageParser {
             "^\\s*(same|usual)\\s*(monday|wednesday|friday)?\\s*$",
             Pattern.CASE_INSENSITIVE
         );
+    // Detects exactly 7 digits — customer looking up their order reference
+    // e.g. "2026006" → ORD-2026-006
+    private static final Pattern ORDER_LOOKUP =
+        Pattern.compile("^\\s*(\\d{7})\\s*$");
+
+    // Detects call request variants
+    private static final Pattern CALL_REQUEST =
+        Pattern.compile(
+            "^\\s*please\\s+call(\\s+me)?\\s*$",
+            Pattern.CASE_INSENSITIVE
+        );
 
     public static ParsedOrder parse(String message) {
         if (message == null || message.isBlank()) return null;
@@ -48,6 +59,41 @@ public class MessageParser {
 
         return new ParsedOrder(white, brown, day, false);
     }
+    
+    /**
+    * Returns true if the message is exactly 7 digits —
+    * a customer looking up their order by short reference number.
+    * e.g. "2026006" or "2026028"
+    */
+   public static boolean isOrderLookup(String message) {
+       if (message == null) return false;
+       return ORDER_LOOKUP.matcher(message.trim()).matches();
+   }
+
+   /**
+    * Returns true if the customer is requesting a callback.
+    * Matches: "please call me", "please call", case-insensitive.
+    */
+   public static boolean isCallRequest(String message) {
+       if (message == null) return false;
+       return CALL_REQUEST.matcher(message.trim()).matches();
+   }
+
+   /**
+    * Converts a 7-digit short reference to a full order ID.
+    * "2026006" → "ORD-2026-006"
+    * "2026028" → "ORD-2026-028"
+    *
+    * Format: first 4 digits = year, last 3 = sequence number.
+    */
+   public static String toOrderId(String sevenDigits) {
+       if (sevenDigits == null) return null;
+       String clean = sevenDigits.trim();
+       if (clean.length() != 7) return null;
+       String year = clean.substring(0, 4);
+       String seq  = clean.substring(4);
+       return "ORD-" + year + "-" + seq;
+   }
 
     private static String capitalise(String s) {
         if (s == null || s.isEmpty()) return null;

@@ -212,6 +212,60 @@ public class SheetsClient {
     }
     
     /**
+    * Finds a single order by its full order ID.
+    * Called when a customer sends their 7-digit reference number.
+    * Returns null if the order does not exist.
+    */
+   public Map<String, String> getOrderById(String orderId) {
+       String range   = TAB_ORDERS + "!A2:M";
+       String rawJson = getRange(range);
+       if (rawJson == null) return null;
+
+       List<List<String>> rows = parseValues(rawJson);
+       for (List<String> row : rows) {
+           if (row.isEmpty()) continue;
+           if (orderId.trim().equals(cell(row, COL_O_ID).trim())) {
+               // Build a readable map of the order's key fields
+               Map<String, String> order = new HashMap<>();
+               order.put("orderId",       cell(row, COL_O_ID));
+               order.put("customerId",    cell(row, COL_O_CUST_ID));
+               order.put("deliveryDate",  cell(row, COL_O_DAY));
+               order.put("whiteLoaves",   cell(row, COL_O_WHITE_ORD));
+               order.put("brownLoaves",   cell(row, COL_O_BROWN_ORD));
+               order.put("amount",        cell(row, COL_O_AMOUNT));
+               order.put("paymentMethod", cell(row, COL_O_PAYMENT));
+               order.put("status",        cell(row, COL_O_STATUS));
+               order.put("deliveryNotes", cell(row, COL_O_DEL_NOTES));
+               return order;
+           }
+       }
+       return null;
+   }
+
+   /**
+    * Returns true if the customer has ever had a PAID or DELIVERED order.
+    * Used to determine whether to show the first-time payment security notice.
+    * Only new customers who have never paid before see that notice.
+    */
+   public boolean hasEverPaidOrder(String customerId) {
+       String range   = TAB_ORDERS + "!A2:M";
+       String rawJson = getRange(range);
+       if (rawJson == null) return false;
+
+       List<List<String>> rows = parseValues(rawJson);
+       for (List<String> row : rows) {
+           if (row.isEmpty()) continue;
+           boolean custMatch = customerId.trim()
+                                 .equals(cell(row, COL_O_CUST_ID).trim());
+           String status     = cell(row, COL_O_STATUS).trim();
+           boolean paid      = "PAID".equals(status) ||
+                               "DELIVERED".equals(status);
+           if (custMatch && paid) return true;
+       }
+       return false;
+   }
+    
+    /**
     * Returns all PAID orders for a delivery day, enriched with
     * customer details (name, section, house, WhatsApp).
     * Called by DeliveriesHandler to build the PWA delivery list.
