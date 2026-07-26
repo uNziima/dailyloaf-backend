@@ -68,6 +68,11 @@ public class WebhookHandler implements HttpHandler {
 
     private void handleIncoming(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
+
+        // Log every incoming webhook payload — confirms Java is receiving
+        System.out.println("[Webhook] Incoming POST received. Body length: " +
+                           body.length() + " chars");
+
         respond(exchange, 200, "OK");
 
         executor.submit(() -> {
@@ -84,34 +89,34 @@ public class WebhookHandler implements HttpHandler {
         String from = Json.getMessageSender(json);
         if (from == null) from = Json.getString(json, "from");
 
-        // CHECK LOCATION FIRST — before isTextMessage filter
+        System.out.println("[Webhook] Processing message from: " + from);
+
+        // 1. Location check FIRST
         if (Json.isLocationMessage(json)) {
             if (from != null) {
                 Customer customer = sheets.findCustomerByWhatsApp(from);
                 if (customer != null) {
                     handleLocationShare(from, customer, json);
                 } else {
-                    System.out.println("[Webhook] Location from unknown number: " + from);
+                    System.out.println("[Webhook] Location from unknown: " + from);
                 }
             }
             return;
         }
-        
-        // Now filter non-text messages
+
+        // 2. Text message filter
         if (!Json.isTextMessage(json)) {
-            System.out.println("[Webhook] Non-text webhook - skipping.");
+            System.out.println("[Webhook] Non-text webhook — skipping.");
             return;
         }
 
+        // 3. Extract message text
         String text = Json.getString(json, "body");
-
-        if (from == null || text == null) {
-            System.err.println("[Webhook] Could not extract from/body: " + json);
-            return;
-        }
+        if (text == null || text.isBlank()) return;
 
         System.out.println("[Webhook] Message from " + from + ": " + text);
 
+        // 4. New or returning customer?
         Customer customer = sheets.findCustomerByWhatsApp(from);
 
         if (customer == null) {
@@ -121,81 +126,36 @@ public class WebhookHandler implements HttpHandler {
         }
 
         System.out.println("[Webhook] Returning customer: " + customer);
-        
-                // ── Order lookup ──────────────────────────────────────────
-        // Detects 7-digit reference numbers like "2026006"
+
+        // 5. Order lookup — BEFORE pending orders check
         if (MessageParser.isOrderLookup(text)) {
             handleOrderLookup(from, customer, text);
             return;
         }
 
-        // ── Call request ──────────────────────────────────────────
+        // 6. Call request — BEFORE pending orders check
         if (MessageParser.isCallRequest(text)) {
             handleCallRequest(from, customer);
             return;
         }
 
-        // ── Phone number — callback number reply ──────────────────
-        // Stateless detection — works even if server restarted
-        // between "please call me" and the number reply
+        // 7. Phone number reply — BEFORE pending orders check
         if (MessageParser.isPhoneNumber(text)) {
             handleCallbackNumber(from, customer, text);
             return;
         }
 
-        
-                // Check if this customer has a pending order waiting for payment method
+        // 8. Pending payment method selection
         if (pendingOrders.containsKey(from)) {
             handlePaymentMethodReply(from, customer, text);
             return;
         }
 
-        // If they just said hi, greet them back before trying to parse an order
-        String normalisedText = text.trim().toLowerCase();
-        if (normalisedText.matches("hi|hii|wola|hello|hey|hola|sawubona|howzit")) {
-            whatsApp.send(from,
-                "Hey " + customer.getFirstName() + "! " +
-                "Ready to order? Just tell me what you need - " +
-                "e.g. '2 white friday' or '3 white 1 brown monday'."
-            );
-            return;
-        }
-
-        ParsedOrder parsed = MessageParser.parse(text);
+        // 9. Parse as order
+        MessageParser.ParsedOrder parsed = MessageParser.parse(text);
 
         if (parsed == null) {
-            String normalised = text.trim().toLowerCase();
-
-            // Greetings — respond personally
-            if (normalised.matches("hi|Hi|Hello|hello|hey|Ola|ola|Wola|wola||awe|Awe|heyy|hola|sawubona|howzit|good morning|morning|good evening|evening|good afternoon|afternoon")) {
-                whatsApp.send(from,
-                    "Hey " + customer.getFirstName() + "! " +
-                    "Ready to order? Just tell me what you need, " +
-                    "e.g. '2 white friday' or '3 white 1 brown monday'."
-                );
-                return;
-            }
-
-            // Gratitude — acknowledge warmly
-            if (normalised.matches("thanks|thank you|dankie|ngyabonga|danko|danki|ngiyabonga|cheers|appreciated|thx|ty")) {
-                whatsApp.send(from,
-                    "Always, " + customer.getFirstName() + ". See you on delivery day."
-                );
-                return;
-            }
-
-            // Payment status check
-            if (normalised.matches("paid|payment|confirmed|did you get it|have you received|status|my order")) {
-                whatsApp.send(from,
-                    "Hey " + customer.getFirstName() + ", check with us on " + config.getBusinessPhoneNumber() +
-                  "if you need payment confirmation. " +
-                    "Once we see your payment we'll confirm immediately."
-                );
-                return;
-            }
-
-            // Genuinely unrecognised — send help
-            whatsApp.sendReturningCustomerHelp(from, customer.getFirstName());
+            handleConversational(from, customer, text);
             return;
         }
 
@@ -213,6 +173,44 @@ public class WebhookHandler implements HttpHandler {
         }
 
         placeOrder(from, customer, parsed, "WhatsApp");
+    }
+    
+    private void handleConversational(String from, Customer customer, String text) {
+        String t = text.trim().toLowerCase();
+
+        if (t.matches("hi|hello|hey|hola|sawubona|howzit|" +
+                      "good morning|morning|good evening|evening|" +
+                      "good afternoon|afternoon")) {
+            whatsApp.send(from,
+                "Hey " + customer.getFirstName() + "! " +
+                "Ready to order? Just tell me what you need — " +
+                "e.g. '2 white friday' or 'same monday'."
+            );
+            return;
+        }
+
+        if (t.matches("thanks|thank you|dankie|ngiyabonga|" +
+                      "cheers|appreciated|thx|ty")) {
+            whatsApp.send(from,
+                "Always, " + customer.getFirstName() + ". " +
+                "See you on delivery day."
+            );
+            return;
+        }
+
+        if (t.matches("paid|payment|confirmed|did you get it|" +
+                      "have you received|status|my order")) {
+            whatsApp.send(from,
+                "Hey " + customer.getFirstName() +
+                ", check with us on " + config.getBusinessPhoneNumber() +
+                " if you need payment confirmation. " +
+                "Once we see your payment we'll confirm immediately."
+            );
+            return;
+        }
+
+        // Genuinely unrecognised
+        whatsApp.sendReturningCustomerHelp(from, customer.getFirstName());
     }
 
     private void handleSameOrder(String from, Customer customer,
