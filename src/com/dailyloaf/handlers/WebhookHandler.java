@@ -48,11 +48,6 @@ public class WebhookHandler implements HttpHandler {
             default     -> respond(exchange, 405, "Method Not Allowed");
         }
     }
-    
-    // Tracks customers who have sent "please call me" and are
-    // waiting to send their callback number
-    private final Map<String, Boolean> awaitingCallback =
-        new ConcurrentHashMap<>();
 
     private void handleVerification(HttpExchange exchange) throws IOException {
         Map<String, String> params = queryParams(exchange.getRequestURI());
@@ -135,16 +130,15 @@ public class WebhookHandler implements HttpHandler {
         }
 
         // ── Call request ──────────────────────────────────────────
-        // Detects "please call me" or "please call"
         if (MessageParser.isCallRequest(text)) {
             handleCallRequest(from, customer);
             return;
         }
 
-        // ── Awaiting callback number ──────────────────────────────
-        // Customer previously sent "please call me" and we asked
-        // for their number — this is their response
-        if (awaitingCallback.containsKey(from)) {
+        // ── Phone number — callback number reply ──────────────────
+        // Stateless detection — works even if server restarted
+        // between "please call me" and the number reply
+        if (MessageParser.isPhoneNumber(text)) {
             handleCallbackNumber(from, customer, text);
             return;
         }
@@ -496,23 +490,17 @@ public class WebhookHandler implements HttpHandler {
        }
    }
 
-   /**
-    * Handles "please call me" from a customer.
-    * Marks the customer as awaiting their callback number
-    * and asks them to send it.
-    */
    private void handleCallRequest(String from, Customer customer) {
-       System.out.println("[Webhook] Call request from: " + customer.getFullName());
+        System.out.println("[Webhook] Call request from: " +
+                           customer.getFullName());
 
-       // Flag this number as awaiting a callback number response
-       awaitingCallback.put(from, true);
-
-       whatsApp.send(from,
-           "Of course, " + customer.getFirstName() + ". " +
-           "Please type and send your cellphone number " +
-           "and we'll call you back shortly."
-       );
-   }
+        whatsApp.send(from,
+            "Of course, " + customer.getFirstName() + ". " +
+            "Please type and send your cellphone number " +
+            "and we'll call you back shortly.\n\n" +
+            "Example: *0821234567*"
+        );
+    }
 
    /**
     * Handles the phone number sent after a call request.
@@ -531,9 +519,6 @@ public class WebhookHandler implements HttpHandler {
            return;
        }
 
-       // Valid number — remove from awaiting state
-       awaitingCallback.remove(from);
-
        // Build display-friendly number
        String cleaned = raw.replaceAll("[\\s\\-]", "");
        String display = cleaned.startsWith("+") ? cleaned :
@@ -543,11 +528,12 @@ public class WebhookHandler implements HttpHandler {
        // Confirm to customer
        whatsApp.sendCallbackConfirmation(from, customer.getFirstName(), display);
 
-       // Alert both founders
        String nziimaNumber  = config.getNziimaWhatsApp();
-       String ntobekoNumber = config.getNtobekoWhatsApp();
-       
-       System.out.println("[Webhook] Sending callback alert to Nziima: " + nziimaNumber);
+        String ntobekoNumber = config.getNtobekoWhatsApp();
+
+        System.out.println("[Webhook] Callback alert — Nziima: " + nziimaNumber);
+        System.out.println("[Webhook] Callback alert — Ntobeko: " + ntobekoNumber);
+
         if (nziimaNumber != null && !nziimaNumber.isBlank()) {
             whatsApp.sendCallbackAlert(
                 nziimaNumber,
@@ -557,7 +543,6 @@ public class WebhookHandler implements HttpHandler {
             );
         }
 
-        System.out.println("[Webhook] Sending callback alert to Ntobeko: " + ntobekoNumber);
         if (ntobekoNumber != null && !ntobekoNumber.isBlank()) {
             whatsApp.sendCallbackAlert(
                 ntobekoNumber,
@@ -566,24 +551,6 @@ public class WebhookHandler implements HttpHandler {
                 from
             );
         }
-
-       if (nziimaNumber != null && !nziimaNumber.isBlank()) {
-           whatsApp.sendCallbackAlert(
-               nziimaNumber,
-               customer.getFullName(),
-               display,
-               from
-           );
-       }
-
-       if (ntobekoNumber != null && !ntobekoNumber.isBlank()) {
-           whatsApp.sendCallbackAlert(
-               ntobekoNumber,
-               customer.getFullName(),
-               display,
-               from
-           );
-       }
 
        System.out.println("[Webhook] Callback alert sent for: " +
                           customer.getFullName() + " → " + display);

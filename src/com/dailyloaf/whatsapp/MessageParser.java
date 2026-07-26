@@ -30,6 +30,22 @@ public class MessageParser {
             "^\\s*please\\s+call(\\s+me)?\\s*$",
             Pattern.CASE_INSENSITIVE
         );
+    
+    // Detects South African phone numbers in any valid format
+    private static final Pattern SA_PHONE =
+        Pattern.compile(
+            "^\\s*(\\+27|27|0)[0-9]{8,9}\\s*$"
+        );
+
+    /**
+     * Returns true if the message looks like a South African phone number.
+     * Matches: 0821234567, 27821234567, +27821234567
+     * Used to detect callback number replies without needing stored state.
+     */
+    public static boolean isPhoneNumber(String message) {
+        if (message == null) return false;
+        return SA_PHONE.matcher(message.trim()).matches();
+    }
 
     public static ParsedOrder parse(String message) {
         if (message == null || message.isBlank()) return null;
