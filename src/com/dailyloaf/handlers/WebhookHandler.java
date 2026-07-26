@@ -546,6 +546,26 @@ public class WebhookHandler implements HttpHandler {
        // Alert both founders
        String nziimaNumber  = config.getNziimaWhatsApp();
        String ntobekoNumber = config.getNtobekoWhatsApp();
+       
+       System.out.println("[Webhook] Sending callback alert to Nziima: " + nziimaNumber);
+        if (nziimaNumber != null && !nziimaNumber.isBlank()) {
+            whatsApp.sendCallbackAlert(
+                nziimaNumber,
+                customer.getFullName(),
+                display,
+                from
+            );
+        }
+
+        System.out.println("[Webhook] Sending callback alert to Ntobeko: " + ntobekoNumber);
+        if (ntobekoNumber != null && !ntobekoNumber.isBlank()) {
+            whatsApp.sendCallbackAlert(
+                ntobekoNumber,
+                customer.getFullName(),
+                display,
+                from
+            );
+        }
 
        if (nziimaNumber != null && !nziimaNumber.isBlank()) {
            whatsApp.sendCallbackAlert(
@@ -593,7 +613,7 @@ public class WebhookHandler implements HttpHandler {
            // +27 followed by 9 digits = 12 chars total
            if (cleaned.length() != 12) {
                return "The number starting with +27 should have exactly " +
-                      "9 digits after +27 — 12 characters total. " +
+                      "9 digits after +27 - 12 characters total. " +
                       "Example: *+27821234567*. Please try again.";
            }
            return null; // valid

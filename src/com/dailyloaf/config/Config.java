@@ -147,6 +147,17 @@ public class Config {
         return get("ntobeko.whatsapp");
     }
     
+    // Converts 0821234567 → 27821234567
+    // Leaves 27821234567 unchanged
+    private String normaliseNumber(String number) {
+        if (number == null) return null;
+        String cleaned = number.replaceAll("[\\s\\-+]", "");
+        if (cleaned.startsWith("0")) {
+            return "27" + cleaned.substring(1);
+        }
+        return cleaned;
+    }
+    
     private static void mapEnv(Properties props, String propKey, String envKey) {
             String value = System.getenv(envKey);
             if (value != null && !value.isBlank()) {
@@ -156,6 +167,8 @@ public class Config {
                 System.out.println("[Config] WARNING: " + envKey + " not found in environment");
             }
     }
+    
+    
 }
 
 

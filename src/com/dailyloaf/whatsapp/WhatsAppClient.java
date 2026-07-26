@@ -49,7 +49,7 @@ public class WhatsAppClient {
                                    ") to " + to + ": " + response.body());
             }
         } catch (IOException | InterruptedException e) {
-            System.err.println("[WhatsApp] Error sending to " + to +
+            System.err.println("[WhatsApp] Network error sending to " + to +
                                ": " + e.getMessage());
         }
     }
