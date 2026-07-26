@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
+import java.util.List;
 
 public class WebhookHandler implements HttpHandler {
 
@@ -501,112 +502,121 @@ public class WebhookHandler implements HttpHandler {
     }
 
    /**
-    * Handles the phone number sent after a call request.
-    * Validates the format, confirms to the customer,
-    * and alerts both Nziima and Ntobeko.
+    * Handles the phone number sent after a customer types "please call me".
+    *
+    * Flow:
+    * 1. Validate the number format
+    * 2. If invalid — explain exactly what's wrong and why
+    * 3. If valid — confirm to customer, load founder numbers from Sheets,
+    *    send alert to every founder
+    *
+    * Validation rules:
+    *   Starts with 0    → must be exactly 10 digits
+    *   Starts with 27   → must be exactly 11 digits
+    *   Starts with +27  → must be exactly 12 characters
+    *   Anything else    → rejected with explanation
     */
    private void handleCallbackNumber(String from, Customer customer,
                                       String text) {
-       String raw        = text.trim();
-       String errorMsg   = validateCallbackNumber(raw);
+       String raw      = text.trim();
+       String errorMsg = validateCallbackNumber(raw);
 
        if (errorMsg != null) {
-           // Validation failed — explain exactly what's wrong
-           // Customer stays in awaitingCallback state so they can try again
+           // Validation failed — tell customer exactly what's wrong
+           // They can try again — stateless so no cleanup needed
            whatsApp.send(from, errorMsg);
            return;
        }
 
-       // Build display-friendly number
+       // Build a consistent display format for the number
        String cleaned = raw.replaceAll("[\\s\\-]", "");
        String display = cleaned.startsWith("+") ? cleaned :
                         cleaned.startsWith("27") ? "+" + cleaned :
                         "+27" + cleaned.substring(1);
 
-       // Confirm to customer
+       System.out.println("[Webhook] Callback number received: " + display +
+                          " from " + customer.getFullName());
+
+       // Confirm to customer immediately
        whatsApp.sendCallbackConfirmation(from, customer.getFirstName(), display);
 
-       String nziimaNumber  = config.getNziimaWhatsApp();
-        String ntobekoNumber = config.getNtobekoWhatsApp();
+       // Load founder numbers from CONTACTS tab in Google Sheets
+       List<String> founders = sheets.getContactNumbers();
 
-        System.out.println("[Webhook] Callback alert — Nziima: " + nziimaNumber);
-        System.out.println("[Webhook] Callback alert — Ntobeko: " + ntobekoNumber);
+       if (founders.isEmpty()) {
+           System.err.println("[Webhook] No contact numbers found in CONTACTS tab.");
+           return;
+       }
 
-        if (nziimaNumber != null && !nziimaNumber.isBlank()) {
-            whatsApp.sendCallbackAlert(
-                nziimaNumber,
-                customer.getFullName(),
-                display,
-                from
-            );
-        }
-
-        if (ntobekoNumber != null && !ntobekoNumber.isBlank()) {
-            whatsApp.sendCallbackAlert(
-                ntobekoNumber,
-                customer.getFullName(),
-                display,
-                from
-            );
-        }
-
-       System.out.println("[Webhook] Callback alert sent for: " +
-                          customer.getFullName() + " → " + display);
+       // Alert every founder listed in the CONTACTS tab
+       for (String founderNumber : founders) {
+           System.out.println("[Webhook] Sending callback alert to: " + founderNumber);
+           whatsApp.sendCallbackAlert(
+               founderNumber,
+               customer.getFullName(),
+               display,
+               from
+           );
+       }
    }
 
    /**
-    * Validates a South African phone number sent as a callback request.
+    * Validates a South African callback number sent by a customer.
     *
-    * Rules:
-    *   Starting with 0    → must be exactly 10 digits total
-    *   Starting with 27   → must be exactly 11 digits total
-    *   Starting with +27  → must be exactly 12 characters total (+27 + 9 digits)
-    *   Anything else      → rejected with explanation
-    *
-    * Returns null if valid.
-    * Returns an error message string if invalid.
+    * Returns null if the number is valid.
+    * Returns a descriptive error message if invalid — the message
+    * explains exactly what is wrong so the customer knows what to fix.
     */
    private String validateCallbackNumber(String raw) {
        if (raw == null || raw.isBlank()) {
-           return "Please send your cellphone number so we can call you back.";
+           return "Please send your cellphone number so we can call you back.\n\n" +
+                  "Example: *0821234567*";
        }
 
-       // Remove spaces and dashes before validating
+       // Remove spaces and dashes — customer may format number differently
        String cleaned = raw.replaceAll("[\\s\\-]", "");
 
        if (cleaned.startsWith("+27")) {
-           // +27 followed by 9 digits = 12 chars total
+           // +27 + 9 digits = 12 characters total
            if (cleaned.length() != 12) {
-               return "The number starting with +27 should have exactly " +
-                      "9 digits after +27 - 12 characters total. " +
-                      "Example: *+27821234567*. Please try again.";
+               return "The number you sent starts with *+27* but has " +
+                      (cleaned.length() - 3) + " digits after +27 — " +
+                      "it should have exactly 9 digits after +27.\n\n" +
+                      "Example: *+27821234567* (12 characters total). " +
+                      "Please try again.";
            }
            return null; // valid
        }
 
        if (cleaned.startsWith("27")) {
-           // 27 followed by 9 digits = 11 digits total
+           // 27 + 9 digits = 11 digits total
            if (cleaned.length() != 11) {
-               return "The number starting with 27 should be exactly " +
-                      "11 digits total. " +
-                      "Example: *27821234567*. Please try again.";
+               return "The number you sent starts with *27* but has " +
+                      cleaned.length() + " digits — " +
+                      "it should be exactly 11 digits total.\n\n" +
+                      "Example: *27821234567* (11 digits). " +
+                      "Please try again.";
            }
            return null; // valid
        }
 
        if (cleaned.startsWith("0")) {
-           // 0 followed by 9 digits = 10 digits total
+           // 0 + 9 digits = 10 digits total
            if (cleaned.length() != 10) {
-               return "The number starting with 0 should be exactly " +
-                      "10 digits total. " +
-                      "Example: *0821234567*. Please try again.";
+               return "The number you sent starts with *0* but has " +
+                      cleaned.length() + " digits — " +
+                      "it should be exactly 10 digits total.\n\n" +
+                      "Example: *0821234567* (10 digits). " +
+                      "Please try again.";
            }
            return null; // valid
        }
 
        // Doesn't match any known South African format
-       return "That doesn't look like a valid South African number. " +
-              "Please start with *0*, *27*, or *+27*. " +
-              "Example: *0821234567*.";
+       return "That doesn't look like a valid South African number.\n\n" +
+              "Please start your number with:\n" +
+              "• *0* — e.g. 0821234567\n" +
+              "• *27* — e.g. 27821234567\n" +
+              "• *+27* — e.g. +27821234567";
    }
 }

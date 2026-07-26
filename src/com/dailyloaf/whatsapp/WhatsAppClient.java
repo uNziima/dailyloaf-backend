@@ -111,20 +111,19 @@ public class WhatsAppClient {
         ));
     }
 
-      /**
-    * Sends the "please call me" hint to the customer.
-    * Appended to the post-delivery message so every customer
-    * knows this option exists after their first delivery.
-    * Not a separate message — part of the delivery confirmation.
+    /**
+    * Sent automatically when the driver marks a stop as DELIVERED.
+    * Includes the referral nudge and a subtle callback hint so
+    * customers know how to reach us if they ever need help.
     */
-    public void sendPostDelivery(String to, String firstName) {
-        send(to, String.format(
-            "Hope the bread is fresh, %s. " +
+   public void sendPostDelivery(String to, String firstName) {
+       send(to, String.format(
+           "Hope the bread is fresh, %s. " +
            "If your neighbour wants this, send them our way.\n\n" +
-           "💡 Need help? Just type and send us *please call me* anytime.",
+           "💡 Need help anytime? Just send us *please call me*.",
            firstName
-        ));
-    }
+       ));
+   }
 
     public void sendCannotFindAddress(String to, String firstName,
                                       String businessNumber) {
@@ -288,18 +287,23 @@ public class WhatsAppClient {
    }
 
    /**
-    * Sends a callback alert to a founder (Nziima or Ntobeko).
-    * Both founders receive this notification so either can call the customer.
+    * Sends a callback alert to all founder numbers loaded from the CONTACTS tab.
+    * Called once per founder number — each founder gets their own message.
+    *
+    * @param founderNumber  Founder's WhatsApp number e.g. "27658374361"
+    * @param customerName   Full name of the customer requesting callback
+    * @param callbackNumber The number the customer wants to be called on
+    * @param customerWA     Customer's WhatsApp number for reference
     */
    public void sendCallbackAlert(String founderNumber, String customerName,
-                                  String callbackNumber, String customerWhatsApp) {
+                                  String callbackNumber, String customerWA) {
        send(founderNumber, String.format(
            "📞 *CALLBACK REQUIRED*\n\n" +
            "Customer: *%s*\n" +
            "Call them on: *%s*\n" +
            "Their WhatsApp: %s\n\n" +
            "Please call as soon as possible.",
-           customerName, callbackNumber, customerWhatsApp
+           customerName, callbackNumber, customerWA
        ));
    }
 }

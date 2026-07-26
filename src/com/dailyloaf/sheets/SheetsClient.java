@@ -22,6 +22,9 @@ import java.util.Map;
 public class SheetsClient {
     private static final String TAB_CUSTOMERS = "CUSTOMERS";
     private static final String TAB_ORDERS    = "ORDERS";
+    // CONTACTS tab — stores founder numbers for internal alerts
+    private static final String TAB_CONTACTS = "CONTACTS";
+
     
     // CUSTOMERS tab columns (0-based)
     private static final int COL_C_ID         = 0;   // A
@@ -45,6 +48,11 @@ public class SheetsClient {
     private static final int COL_O_AMOUNT     = 8;   // I
     private static final int COL_O_PAYMENT    = 9;   // J
     private static final int COL_O_DEL_NOTES  = 11;  // L
+    
+    // CONTACTS tab columns (0-based)
+    private static final int COL_CONTACT_NAME   = 0;  // A
+    private static final int COL_CONTACT_NUMBER = 1;  // B
+    private static final int COL_CONTACT_ROLE   = 2;  // C
     
     private static final String BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets/";
     private static final int    TIMEOUT  = 15;
@@ -714,6 +722,35 @@ private List<String> parseRow(String rowStr) {
                return;
            }
        }
+   }
+   
+   /**
+    * Returns all WhatsApp numbers from the CONTACTS tab.
+    * Used to notify founders when a customer requests a callback.
+    * Reading from Sheets means numbers can be updated without redeployment.
+    *
+    * Returns a list of number strings e.g. ["27658374361", "27729922827"]
+    * Returns empty list if tab is unreachable or empty.
+    */
+   public List<String> getContactNumbers() {
+       List<String> numbers = new ArrayList<>();
+
+       String range   = TAB_CONTACTS + "!A2:C";
+       String rawJson = getRange(range);
+       if (rawJson == null) return numbers;
+
+       List<List<String>> rows = parseValues(rawJson);
+       for (List<String> row : rows) {
+           if (row.size() > COL_CONTACT_NUMBER) {
+               String number = cell(row, COL_CONTACT_NUMBER).trim();
+               if (!number.isEmpty()) {
+                   numbers.add(number);
+               }
+           }
+       }
+
+       System.out.println("[Sheets] Contact numbers loaded: " + numbers.size());
+       return numbers;
    }
    
    private boolean isCashPayment(String payment) {
