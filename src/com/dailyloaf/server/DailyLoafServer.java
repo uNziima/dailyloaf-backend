@@ -16,6 +16,7 @@ import com.dailyloaf.handlers.NotDeliveredHandler;
 import com.dailyloaf.handlers.ConfigHandler;
 import com.dailyloaf.server.StaticFileHandler;
 import com.dailyloaf.handlers.PaymentHandler;
+import com.dailyloaf.handlers.WaitlistHandler;
 
 public class DailyLoafServer {
 
@@ -39,6 +40,7 @@ public class DailyLoafServer {
         server.createContext("/not-delivered", new NotDeliveredHandler(config));
         server.createContext("/broadcast", new BroadcastHandler(config));
         server.createContext("/config", new ConfigHandler(config));
+        server.createContext("/waitlist", new WaitlistHandler(config));
         server.createContext("/delivery-os",
             new StaticFileHandler("delivery-os"));
 

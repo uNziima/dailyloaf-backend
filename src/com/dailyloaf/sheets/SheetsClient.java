@@ -134,6 +134,22 @@ public class SheetsClient {
       return orderId;
     }
     
+    public void addToWaitlist(String timestamp,
+                            String name,
+                            String whatsapp,
+                            String source,
+                            String status) {
+
+      List<String> row = new ArrayList<>();
+      row.add(timestamp);
+      row.add(name);
+      row.add(whatsapp);
+      row.add(source);
+      row.add(status);
+
+      appendRow("WAITLIST", row);
+  }
+    
     /**
     * Calculates the actual calendar date of the next occurrence
     * of a delivery day from today.
