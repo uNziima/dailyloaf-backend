@@ -87,12 +87,13 @@ public class WebhookHandler implements HttpHandler {
     }
 
     private void processMessage(String json) {
+
         String from = Json.getMessageSender(json);
         if (from == null) from = Json.getString(json, "from");
 
-        System.out.println("[Webhook] Processing message from: " + from);
+        System.out.println("[Webhook] Processing from: " + from);
 
-        // 1. Location check FIRST
+        // 1. Location share — always check first
         if (Json.isLocationMessage(json)) {
             if (from != null) {
                 Customer customer = sheets.findCustomerByWhatsApp(from);
@@ -105,19 +106,18 @@ public class WebhookHandler implements HttpHandler {
             return;
         }
 
-        // 2. Text message filter
+        // 2. Text only from here
         if (!Json.isTextMessage(json)) {
             System.out.println("[Webhook] Non-text webhook — skipping.");
             return;
         }
 
-        // 3. Extract message text
         String text = Json.getString(json, "body");
         if (text == null || text.isBlank()) return;
 
         System.out.println("[Webhook] Message from " + from + ": " + text);
 
-        // 4. New or returning customer?
+        // 3. New or returning?
         Customer customer = sheets.findCustomerByWhatsApp(from);
 
         if (customer == null) {
@@ -126,33 +126,49 @@ public class WebhookHandler implements HttpHandler {
             return;
         }
 
-        System.out.println("[Webhook] Returning customer: " + customer);
+        System.out.println("[Webhook] Returning: " + customer);
 
-        // 5. Order lookup — BEFORE pending orders check
+        // 4. Order lookup — 7 digits
         if (MessageParser.isOrderLookup(text)) {
             handleOrderLookup(from, customer, text);
             return;
         }
 
-        // 6. Call request — BEFORE pending orders check
+        // 5. Call request
         if (MessageParser.isCallRequest(text)) {
+            awaitingYesNo.remove(from);
+            awaitingMenuChoice.remove(from);
             handleCallRequest(from, customer);
             return;
         }
 
-        // 7. Phone number reply — BEFORE pending orders check
+        // 6. Phone number reply for callback
         if (MessageParser.isPhoneNumber(text)) {
+            awaitingYesNo.remove(from);
+            awaitingMenuChoice.remove(from);
             handleCallbackNumber(from, customer, text);
             return;
         }
 
-        // 8. Pending payment method selection
+        // 7. Customer awaiting YES/NO response
+        if (awaitingYesNo.containsKey(from)) {
+            handleYesNoResponse(from, customer, text);
+            return;
+        }
+
+        // 8. Customer awaiting menu choice
+        if (awaitingMenuChoice.containsKey(from)) {
+            handleMenuChoice(from, customer, text);
+            return;
+        }
+
+        // 9. Pending payment method selection
         if (pendingOrders.containsKey(from)) {
             handlePaymentMethodReply(from, customer, text);
             return;
         }
 
-        // 9. Parse as order
+        // 10. Parse as order
         MessageParser.ParsedOrder parsed = MessageParser.parse(text);
 
         if (parsed == null) {
@@ -168,7 +184,7 @@ public class WebhookHandler implements HttpHandler {
         if (!parsed.hasDay()) {
             whatsApp.send(from,
                 "Which day, " + customer.getFirstName() +
-                "? Reply Monday, Wednesday, or Friday."
+                "? Reply *Monday*, *Wednesday*, or *Friday*."
             );
             return;
         }
@@ -176,44 +192,134 @@ public class WebhookHandler implements HttpHandler {
         placeOrder(from, customer, parsed, "WhatsApp");
     }
     
-    private void handleConversational(String from, Customer customer, String text) {
-        String t = text.trim().toLowerCase();
+    /**
+    * Handles conversational messages — greetings, gratitude, status queries.
+    * Anything genuinely unrecognised triggers the "are you trying to order?" prompt.
+    */
+   private void handleConversational(String from, Customer customer, String text) {
+       String t = text.trim().toLowerCase();
 
-        if (t.matches("hi|hello|hey|hola|sawubona|howzit|" +
-                      "good morning|morning|good evening|evening|" +
-                      "good afternoon|afternoon")) {
-            whatsApp.send(from,
-                "Hey " + customer.getFirstName() + "! " +
-                "Ready to order? Just tell me what you need — " +
-                "e.g. '2 white friday' or 'same monday'."
-            );
-            return;
-        }
+       // Greetings
+       if (t.matches("hi|hello|hey|hola|sawubona|howzit|sanibona|" +
+                     "good morning|morning|good evening|evening|" +
+                     "good afternoon|afternoon")) {
+           whatsApp.send(from,
+               "Hey " + customer.getFirstName() + " 👋\n\n" +
+               "Good to hear from you! Ready to order?\n\n" +
+               "Reply *YES* to place an order\n" +
+               "Reply *NO* for other options"
+           );
+           awaitingYesNo.put(from, true);
+           return;
+       }
 
-        if (t.matches("thanks|thank you|dankie|ngiyabonga|" +
-                      "cheers|appreciated|thx|ty")) {
-            whatsApp.send(from,
-                "Always, " + customer.getFirstName() + ". " +
-                "See you on delivery day."
-            );
-            return;
-        }
+       // Gratitude
+       if (t.matches("thanks|thank you|dankie|ngiyabonga|enkosi|" +
+                     "cheers|appreciated|thx|ty")) {
+           whatsApp.send(from,
+               "Always, " + customer.getFirstName() +
+               " 🙏 See you on delivery day.\n\n" +
+               "_No reply needed_"
+           );
+           return;
+       }
 
-        if (t.matches("paid|payment|confirmed|did you get it|" +
-                      "have you received|status|my order")) {
-            whatsApp.send(from,
-                "Hey " + customer.getFirstName() +
-                ", check with us on " + config.getBusinessPhoneNumber() +
-                " if you need payment confirmation. " +
-                "Once we see your payment we'll confirm immediately."
-            );
-            return;
-        }
+       // Payment status query
+       if (t.matches("paid|payment|confirmed|did you get it|" +
+                     "have you received|status|my order|order")) {
+           whatsApp.send(from,
+               "Hi " + customer.getFirstName() + ",\n\n" +
+               "To check your order, send your *7-digit order reference*.\n\n" +
+               "_Example: if your order ID is ORD-2026-006, send *2026006*_"
+           );
+           return;
+       }
 
-        // Genuinely unrecognised
-        whatsApp.sendReturningCustomerHelp(from, customer.getFirstName());
-    }
+       // Unrecognised — trigger yes/no prompt
+       awaitingYesNo.put(from, true);
+       whatsApp.sendAreYouOrdering(from, customer.getFirstName());
+   }
 
+   /**
+    * Handles YES or NO response after "Are you trying to order?" prompt.
+    *
+    * YES → send ordering instructions
+    * NO  → send options menu, move to menu state
+    * Other → error, keep them in yes/no state so they can try again
+    */
+   private void handleYesNoResponse(String from, Customer customer,
+                                     String text) {
+       if (MessageParser.isYes(text)) {
+           awaitingYesNo.remove(from);
+           whatsApp.sendOrderingInstructions(from, customer.getFirstName());
+
+       } else if (MessageParser.isNo(text)) {
+           awaitingYesNo.remove(from);
+           awaitingMenuChoice.put(from, true);
+           whatsApp.sendNoMenu(from, customer.getFirstName());
+
+       } else {
+           // Invalid response — remind them to say yes or no
+           whatsApp.send(from,
+               "⚠️ Please reply *YES* or *NO*, " +
+               customer.getFirstName() + "."
+           );
+       }
+   }
+
+   /**
+    * Handles the customer's selection from the options menu (1-5).
+    *
+    * 1 — Check order status → ask for order reference number
+    * 2 — Request callback  → same as "please call me"
+    * 3 — Delivery issue    → prompt to describe problem
+    * 4 — Subscriptions     → send subscription offer
+    * 5 — Something else    → open-ended prompt
+    * Other → error, repeat the menu
+    */
+   private void handleMenuChoice(String from, Customer customer, String text) {
+       int choice = MessageParser.getMenuChoice(text);
+
+       if (choice == -1) {
+           // Not a valid menu number — repeat the menu
+           whatsApp.sendMenuError(from, customer.getFirstName());
+           return;
+       }
+
+       // Valid choice — clear menu state
+       awaitingMenuChoice.remove(from);
+
+       switch (choice) {
+           case 1 -> {
+               // Check order status
+               whatsApp.send(from,
+                   "To check your order, send your *7-digit order reference*.\n\n" +
+                   "_Example: if your order ID is ORD-2026-006, send *2026006*_"
+               );
+           }
+           case 2 -> {
+               // Request callback — reuse existing flow
+               handleCallRequest(from, customer);
+           }
+           case 3 -> {
+               // Delivery issue
+               whatsApp.sendDeliveryIssuePrompt(from, customer.getFirstName());
+           }
+           case 4 -> {
+               // Subscriptions
+               whatsApp.sendSubscriptionOffer(
+                   from,
+                   customer.getFirstName(),
+                   "your next delivery day"
+               );
+           }
+           case 5 -> {
+               // Something else
+               whatsApp.sendSomethingElsePrompt(from, customer.getFirstName());
+           }
+       }
+   }
+   
     private void handleSameOrder(String from, Customer customer,
                                  ParsedOrder parsed) {
         whatsApp.send(from,
@@ -254,7 +360,6 @@ public class WebhookHandler implements HttpHandler {
             }
 
             case VALID -> {
-                // Create order in Sheet first — get the order ID
                 String orderId = sheets.createOrder(
                     customer.getCustomerId(),
                     parsed.deliveryDay,
@@ -270,7 +375,6 @@ public class WebhookHandler implements HttpHandler {
                 int total  = parsed.totalLoaves();
                 int amount = total * 20;
 
-                // Store pending order — waiting for payment method reply
                 pendingOrders.put(from, new PendingOrder(
                     customer.getCustomerId(),
                     parsed.deliveryDay,
@@ -281,14 +385,14 @@ public class WebhookHandler implements HttpHandler {
                     orderId
                 ));
 
-                // Ask for payment method
-                whatsApp.send(from,
-                    "Got it, " + customer.getFirstName() + " " +
-                    parsed.whiteLoaves + " white + " + parsed.brownLoaves +
-                    " brown for " + parsed.deliveryDay + " = R" + amount + ".\n\n" +
-                    "How are you paying?\n" +
-                    "*1* - Card Payment\n" +
-                    "*2* - Cash Payment"
+                // Use the new structured payment method prompt
+                whatsApp.sendPaymentMethodPrompt(
+                    from,
+                    customer.getFirstName(),
+                    parsed.whiteLoaves,
+                    parsed.brownLoaves,
+                    parsed.deliveryDay,
+                    amount
                 );
             }
 
@@ -313,6 +417,14 @@ public class WebhookHandler implements HttpHandler {
        }
    }
 
+    // Tracks customers waiting to respond YES or NO to "are you trying to order?"
+    private final Map<String, Boolean> awaitingYesNo =
+        new ConcurrentHashMap<>();
+
+    // Tracks customers who said NO and are now choosing from the options menu
+    private final Map<String, Boolean> awaitingMenuChoice =
+        new ConcurrentHashMap<>();
+    
     private Map<String, String> queryParams(URI uri) {
         Map<String, String> params = new ConcurrentHashMap<>();
         String query = uri.getQuery();
@@ -407,24 +519,22 @@ public class WebhookHandler implements HttpHandler {
         }
 
         private void handleLocationShare(String from, Customer customer, String json) {
-        Double lat = Json.getDouble(json, "latitude");
-        Double lng = Json.getDouble(json, "longitude");
+            Double lat = Json.getDouble(json, "latitude");
+            Double lng = Json.getDouble(json, "longitude");
 
-        if (lat == null || lng == null) {
-            System.err.println("[Webhook] Location message, no coordinates found.");
-            return;
+            if (lat == null || lng == null) {
+                System.err.println("[Webhook] Location — no coordinates found.");
+                return;
+            }
+
+            System.out.println("[Webhook] Location from " + from +
+                               ": " + lat + ", " + lng);
+
+            sheets.saveCoordinates(customer.getCustomerId(), lat, lng);
+
+            // Use the dedicated confirmed message instead of a raw send()
+            whatsApp.sendLocationConfirmed(from, customer.getFirstName());
         }
-
-        System.out.println("[Webhook] Location received from " + from +
-                           ": " + lat + ", " + lng);
-
-        sheets.saveCoordinates(customer.getCustomerId(), lat, lng);
-
-        whatsApp.send(from,
-            "Perfect, " + customer.getFirstName() + ". " +
-            "We've saved your location, we'll find your door on delivery day."
-        );
-    }
         
     /**
     * Handles order lookup when customer sends their 7-digit reference.
@@ -490,15 +600,8 @@ public class WebhookHandler implements HttpHandler {
    }
 
    private void handleCallRequest(String from, Customer customer) {
-        System.out.println("[Webhook] Call request from: " +
-                           customer.getFullName());
-
-        whatsApp.send(from,
-            "Of course, " + customer.getFirstName() + ". " +
-            "Please type and send your cellphone number " +
-            "and we'll call you back shortly.\n\n" +
-            "Example: *0821234567*"
-        );
+        System.out.println("[Webhook] Call request from: " + customer.getFullName());
+        whatsApp.sendCallbackNumberPrompt(from, customer.getFirstName());
     }
 
    /**

@@ -46,6 +46,38 @@ public class MessageParser {
         if (message == null) return false;
         return SA_PHONE.matcher(message.trim()).matches();
     }
+    
+    /**
+    * Returns true if the customer said yes in any common form.
+    * Used after "Are you trying to order?" prompt.
+    */
+   public static boolean isYes(String message) {
+       if (message == null) return false;
+       return message.trim().matches(
+           "(?i)yes|yeah|yep|yup|sure|ok|okay|y"
+       );
+   }
+
+   /**
+    * Returns true if the customer said no in any common form.
+    * Used after "Are you trying to order?" prompt.
+    */
+   public static boolean isNo(String message) {
+       if (message == null) return false;
+       return message.trim().matches("(?i)no|nope|nah|n");
+   }
+
+   /**
+    * Returns the menu choice number (1-5) if the customer sent a single digit.
+    * Returns -1 if the message is not a valid menu selection.
+    * Used after the options menu is shown.
+    */
+   public static int getMenuChoice(String message) {
+       if (message == null) return -1;
+       String t = message.trim();
+       if (t.matches("[1-5]")) return Integer.parseInt(t);
+       return -1;
+   }
 
     public static ParsedOrder parse(String message) {
         if (message == null || message.isBlank()) return null;
