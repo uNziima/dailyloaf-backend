@@ -1,0 +1,20 @@
+# Copy to config.properties for local development. Never commit config.properties.
+# In production, each key is read from an environment variable instead
+# (for example whatsapp.token -> WHATSAPP_TOKEN).
+
+# Required
+server.port=8080
+whatsapp.token=YOUR_WHATSAPP_TOKEN_HERE
+whatsapp.phone_number_id=YOUR_PHONE_NUMBER_ID_HERE
+webhook.verify_token=YOUR_CHOSEN_VERIFY_TOKEN
+sheets.spreadsheet_id=YOUR_SPREADSHEET_ID_HERE
+
+# Google service account (Sheets access)
+google.service_account_email=YOUR_SERVICE_ACCOUNT_EMAIL
+google.private_key=YOUR_PRIVATE_KEY_HERE
+
+# Optional
+delivery.os.key=YOUR_DELIVERY_OS_ACCESS_KEY
+google.maps.api.key=YOUR_GOOGLE_MAPS_API_KEY
+business.phone_number=YOUR_BUSINESS_PHONE_NUMBER
+business.capitec_number=YOUR_BUSINESS_ACCOUNT_REFERENCE
